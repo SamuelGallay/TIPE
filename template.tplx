@@ -1,0 +1,14 @@
+((*- extends 'article.tplx' -*))
+
+((* block author *))
+    \author{\textsc{Samuel Gallay}}
+((* endblock author *))
+
+((* block title *))
+    \title{Vers la programmation logique}
+((* endblock title *))
+
+((* block packages *))
+    \usepackage[french]{babel}
+    ((( super() )))
+((* endblock packages *))
