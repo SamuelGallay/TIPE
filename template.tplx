@@ -12,3 +12,8 @@
     \usepackage[french]{babel}
     ((( super() )))
 ((* endblock packages *))
+
+((* block bibliography *))
+    \bibliography{biblio}
+    \bibliographystyle{abbrv}
+((* endblock bibliography *))

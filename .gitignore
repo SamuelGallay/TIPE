@@ -1,2 +1,5 @@
 .ipynb_checkpoints/
 *~
+*.cmi
+*.cmo
+prolog.ml
