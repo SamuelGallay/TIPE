@@ -1,19 +1,42 @@
 ((*- extends 'article.tplx' -*))
 
+
 ((* block author *))
-    \author{\textsc{Samuel Gallay}}
+\author{\textsc{Samuel Gallay}}
 ((* endblock author *))
 
 ((* block title *))
-    \title{Vers la programmation logique}
+\title{Vers la programmation logique}
 ((* endblock title *))
+
+((* block maketitle *))
+((( super() )))
+((* endblock maketitle *))
 
 ((* block packages *))
     \usepackage[french]{babel}
+    \usepackage{fancyhdr}
     ((( super() )))
 ((* endblock packages *))
 
+((* block margins *))
+    \setlength{\voffset}{-0.6in}
+    \setlength{\hoffset}{-0.8in}
+    \setlength{\footskip}{0.2in}
+    \setlength{\textwidth}{0.9\paperwidth}
+    \setlength{\textheight}{0.9\paperheight}
+    \setlength{\headsep}{0.2in}
+    \setlength{\headheight}{13.6pt}
+    
+%    \pagestyle{fancy}
+%    \fancyhf{}
+%    \lhead{\textsc{Samuel Gallay}}
+%    \chead{Devoir Maison d'Informatique 1}
+%    \rhead{\today}
+%    \cfoot{\thepage}
+((* endblock margins *))
+
 ((* block bibliography *))
-    \bibliography{biblio}
-    \bibliographystyle{abbrv}
+%    \bibliography{biblio}
+%    \bibliographystyle{abbrv}
 ((* endblock bibliography *))
