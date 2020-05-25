@@ -15,8 +15,10 @@
 
 ((* block packages *))
     \usepackage[french]{babel}
+    \usepackage{natbib}
     \usepackage{fancyhdr}
     ((( super() )))
+    \captionsetup{format=plain}
 ((* endblock packages *))
 
 ((* block margins *))
