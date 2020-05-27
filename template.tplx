@@ -22,6 +22,7 @@
 ((* endblock packages *))
 
 ((* block margins *))
+% Pour les marges
     \setlength{\voffset}{-0.6in}
     \setlength{\hoffset}{-0.8in}
     \setlength{\footskip}{0.2in}
@@ -29,7 +30,13 @@
     \setlength{\textheight}{0.9\paperheight}
     \setlength{\headsep}{0.2in}
     \setlength{\headheight}{13.6pt}
-    
+
+    \definecolor{incolor}{HTML}{FFFFFF}
+    \definecolor{outcolor}{HTML}{FFFFFF}
+    \definecolor{cellborder}{HTML}{0F0F0F}
+    \definecolor{cellbackground}{HTML}{FAFAFA}
+
+% Pour des bandes en haut du fichier
 %    \pagestyle{fancy}
 %    \fancyhf{}
 %    \lhead{\textsc{Samuel Gallay}}
@@ -39,6 +46,7 @@
 ((* endblock margins *))
 
 ((* block bibliography *))
+% Pour la bibliographie
 %    \bibliography{biblio}
 %    \bibliographystyle{abbrv}
 ((* endblock bibliography *))
