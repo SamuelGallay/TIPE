@@ -34,6 +34,7 @@
     \definecolor{incolor}{HTML}{FFFFFF}
     \definecolor{outcolor}{HTML}{FFFFFF}
     \definecolor{cellborder}{HTML}{0F0F0F}
+    \definecolor{cellborder}{HTML}{2BA11C}
     \definecolor{cellbackground}{HTML}{FAFAFA}
 
 % Pour des bandes en haut du fichier
