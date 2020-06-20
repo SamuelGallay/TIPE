@@ -5,5 +5,4 @@
 (* open Solver *)
 (* open Tests *)
 
-
 let _ = Format.printf "\nHello from main !\n"

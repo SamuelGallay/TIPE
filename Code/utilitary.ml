@@ -3,8 +3,7 @@ open Types
 (* Transforme un terme en une chaîne de caractères *)
 let rec string_of_term = function
   | Predicate (p, []) -> p
-  | Predicate (p, l) ->
-      p ^ "(" ^ String.concat ", " (List.map string_of_term l) ^ ")"
+  | Predicate (p, l) -> p ^ "(" ^ String.concat ", " (List.map string_of_term l) ^ ")"
   | Var (Id (s, n)) -> s ^ string_of_int n
   | Table Empty -> "[]"
   | Table (TVar (Id (s, n))) -> s ^ string_of_int n
@@ -19,8 +18,7 @@ let rec string_of_term = function
 (* DEBUG : affiche un liste de couple de termes *)
 let print_eqs eqs =
   TermSet.iter
-    (fun (t1, t2) ->
-      Format.printf "%s <-> %s\n%!" (string_of_term t1) (string_of_term t2))
+    (fun (t1, t2) -> Format.printf "%s <-> %s\n%!" (string_of_term t1) (string_of_term t2))
     eqs
 
 (* Applique une substitution sur un terme *)
@@ -28,8 +26,7 @@ let print_eqs eqs =
 let rec replace_var_in_term var new_term term =
   match term with
   | Var v -> if v = var then new_term else Var v
-  | Predicate (p, l) ->
-      Predicate (p, List.map (replace_var_in_term var new_term) l)
+  | Predicate (p, l) -> Predicate (p, List.map (replace_var_in_term var new_term) l)
   | Table tbl ->
       let rec aux = function
         | Empty -> Empty
@@ -37,19 +34,15 @@ let rec replace_var_in_term var new_term term =
             if v = var then
               match new_term with
               | Table nt -> nt
-              | _ ->
-                  failwith
-                    "Try to replace a table by a term that is not a table"
+              | _ -> failwith "Try to replace a table by a term that is not a table"
             else TVar v
-        | NonEmpty (head, tail) ->
-            NonEmpty (replace_var_in_term var new_term head, aux tail)
+        | NonEmpty (head, tail) -> NonEmpty (replace_var_in_term var new_term head, aux tail)
       in
       Table (aux tbl)
 
 let replace_var_in_eqs var new_term eqs =
   TermSet.map
-    (fun (a, b) ->
-      (replace_var_in_term var new_term a, replace_var_in_term var new_term b))
+    (fun (a, b) -> (replace_var_in_term var new_term a, replace_var_in_term var new_term b))
     eqs
 
 let rec var_in_term var = function
@@ -97,5 +90,4 @@ let rec find_tvars_in_term = function
 let find_tvars_in_termlist tl = List.concat (List.map find_tvars_in_term tl)
 
 (* Renvoie la liste des variables représentant un tableau à l'intérieur d'une clause *)
-let find_tvars_in_clause (Clause (t, tl)) =
-  find_tvars_in_term t @ find_tvars_in_termlist tl
+let find_tvars_in_clause (Clause (t, tl)) = find_tvars_in_term t @ find_tvars_in_termlist tl
