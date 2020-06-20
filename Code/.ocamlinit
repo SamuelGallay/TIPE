@@ -1,0 +1,9 @@
+#mod_use "types.ml"
+#mod_use "parser.ml"
+#mod_use "utilitary.ml"
+#mod_use "unification.ml"
+#mod_use "solver.ml"
+#mod_use "tests.ml"
+
+
+let _ = Format.printf "Hello World, from the '.ocamlinit' file !\n%!"
