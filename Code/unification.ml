@@ -7,7 +7,6 @@ type equation_set = { mutable data : TermSet.t; mutable correct : bool }
 
 let solve e =
   let eqs = { data = e; correct = true } in
-
   let aux = function
     | Predicate (f, lf), Predicate (g, lg) when f = g && List.length lf = List.length lg ->
         List.iter2 (fun a b -> eqs.data <- TermSet.add (a, b) eqs.data) lf lg;
@@ -53,7 +52,6 @@ let solve e =
     old := eqs.data;
     TermSet.iter (fun c -> if eqs.data <> !old then () else aux c) eqs.data
   done;
-
   if eqs.correct then Some eqs.data else None
 
 (* Prend 2 terme et renvoie l'unifieur le plus général s'il existe, None sinon.

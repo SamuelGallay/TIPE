@@ -3,6 +3,22 @@ open Utilitary
 open Unification
 open Solver
 
+
+type 'a ftree = FLeaf of 'a | FNode of 'a ftree list
+
+let rec force_tree (tree : 'a tree) =
+  match tree with
+  | Leaf a -> FLeaf a
+  | Node atl -> FNode (List.map (fun t -> force_tree (Lazy.force t)) atl)
+
+let test_eq s1 s2 =
+  let _ = Format.printf "Bijection entre %s et %s :\n%!" s1 s2 in
+  Option.iter
+    (VarMap.iter (fun key v ->
+         Format.printf "%s -> %s\n%!" (string_of_term (Var key)) (string_of_term (Var v))))
+    (bijection (read_term s1) (read_term s2))
+
+
 (* La fonction test_unification a pour but de tester mgu *)
 let test_unification str_r str_c = Format.printf "Unification de %s et de %s :\n%!" str_r str_c;
 match mgu (str_r |> read_term) (str_c |> read_term) with

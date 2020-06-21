@@ -2,6 +2,7 @@ open Types
 open Parser
 open Utilitary
 open Unification
+open Normalize
 
 let type_check_term term =
   List.fold_left
@@ -225,49 +226,4 @@ let request world sol_method req =
       sol;
   Format.printf "\n%!"
 
-let rec rename_var old_var new_var = function
-  | Var v -> Var (if v = old_var then new_var else v)
-  | Predicate (p, l) -> Predicate (p, List.map (rename_var old_var new_var) l)
-  | Table tbl ->
-      Table
-        ( match tbl with
-        | TVar v -> TVar (if v = old_var then new_var else v)
-        | Empty -> Empty
-        | NonEmpty (head, tail) -> (
-            match rename_var old_var new_var (Table tail) with
-            | Table ntail -> NonEmpty (rename_var old_var new_var head, ntail)
-            | _ -> failwith "Error in rename var" ) )
-
-let rec list_var_in_term = function
-  | Var v -> [ v ]
-  | Predicate (_, l) -> List.concat (List.map list_var_in_term l)
-  | Table tbl -> (
-      match tbl with
-      | Empty -> []
-      | TVar v -> [ v ]
-      | NonEmpty (h, t) -> list_var_in_term h @ list_var_in_term (Table t) )
-
-let normalize term =
-  let nt, _ =
-    List.fold_left
-      (fun (t, n) v -> (rename_var v (Id ("@", n)) t, n + 1))
-      (term, 1) (list_var_in_term term)
-  in
-  nt
-
-let _ =
-  "samuel(S, G, [S, A | S])" |> read_term |> normalize |> string_of_term |> Format.printf "%s\n%!"
-
-type 'a ftree = FLeaf of 'a | FNode of 'a ftree list
-
-let rec force_tree (tree : 'a tree) =
-  match tree with
-  | Leaf a -> FLeaf a
-  | Node atl -> FNode (List.map (fun t -> force_tree (Lazy.force t)) atl)
-
-let test_eq s1 s2 =
-  let _ = Format.printf "Bijection entre %s et %s :\n%!" s1 s2 in
-  Option.iter
-    (VarMap.iter (fun key v ->
-         Format.printf "%s -> %s\n%!" (string_of_term (Var key)) (string_of_term (Var v))))
-    (bijection (read_term s1) (read_term s2))
+let _ = NormalTermSet.empty

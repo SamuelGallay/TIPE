@@ -2,6 +2,7 @@
 #mod_use "parser.ml"
 #mod_use "utilitary.ml"
 #mod_use "unification.ml"
+#mod_use "normalize.ml"
 #mod_use "solver.ml"
 #mod_use "tests.ml"
 
