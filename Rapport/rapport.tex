@@ -1,0 +1,382 @@
+\documentclass{article}
+
+\usepackage[T1]{fontenc}
+
+\usepackage{natbib}
+\usepackage{geometry}
+\usepackage[colorlinks=true, breaklinks]{hyperref}
+\usepackage{xcolor}
+\usepackage[indent]{parskip}
+\usepackage{minted}
+
+\usepackage[french]{babel}
+
+\definecolor{urlcolor}{rgb}{0,.145,.698}
+\definecolor{linkcolor}{rgb}{.71,0.21,0.01}
+\definecolor{citecolor}{rgb}{.12,.54,.11}    % vert clair
+
+\geometry{verbose,tmargin=0.5in,bmargin=0.5in,lmargin=0.5in,rmargin=0.5in}
+
+\newcommand\codefile[1]{\subsection{#1}\inputminted{ocaml}{../Code/#1}}
+
+\title{Vers la programmation logique}
+\author{\textsc{Samuel Gallay}}
+
+\begin{document}
+
+\maketitle
+
+\section{Introduction au langage Prolog}
+
+Prolog, pour programmation en logique est un langage créé par A. Colmerauer, en 1972 à Marseille. La programmation logique est un paradigme différent de la programmation impérative ou de la programmation fonctionnelle. On définit des faits élémentaires et des règles de la manière suivante :
+
+\begin{verbatim}
+apprend(eve, mathematiques).
+apprend(benjamin, informatique).
+apprend(benjamin, physique).
+enseigne(alice, physique).
+enseigne(pierre, mathematiques).
+enseigne(pierre, informatique).
+
+etudiant_de(E,P):-apprend(E,M), enseigne(P,M).
+\end{verbatim}
+
+Ces informations décrivent l'ensemble des connaissances du programme. On lit ici ``Benjamin apprend l'informatique'', ou ``Alice enseigne la physique''. La dernière ligne est une règle : ``L'élève E est étudiant du professeur P si E apprend la matière M et P enseigne M''. Le symbole \texttt{:-} se lit \emph{si}, et la virgule entre \texttt{apprend(E,M)} et \texttt{enseigne(P,M)} sinifie \emph{et}.
+
+Ensuite l'utilisateur peut effectuer des requêtes comme ceci : \texttt{?-etudiant\_de(E,\ pierre)}. L'interpréteur Prolog renvoie alors \texttt{E\ =\ benjamin} et \texttt{E\ =\ eve}. Ce qui différencie la programmation logique des formes plus courantes d'informatique impérative, c'est qu'on n'explique pas au programme comment résoudre la requête, on se contente de décrire le problème.
+
+De très nombreuses introductions au langage Prolog peuvent être trouvées sur internet, je n'en cite qu'une seule qui m'est apparue comme convenable pour une première approche : \cite{Flach}. Un autre ouvrage plutôt plus complet est \cite{Sterling}.
+
+\section{La grammaire du langage Prolog}
+
+La première chose à faire est d'étudier la grammaire du langage, c'est à dire comment sont formés les mots du langage (en linguistique on parle de morphologie), mais aussi comment peuvent s'agencer les mots pour former un programme valide (c'est la syntaxe).
+
+La grammaire du langage Prolog est non-contextuelle, ce qui signifie que toutes les règles ne contiennent à gauche qu'un seul symbole. Plus intuitivement, pour décrire un symbole non-terminal (entre chevrons) on a pas besoin de connaitre ce qu'il y a avant ou après, d'où le ``non-contextuel''. J'en suis arrivé à cette définition de la grammaire de mon sous-ensemble du langage Prolog, ici présentée sous la forme de Backus-Naur :
+
+\begin{verbatim}
+<Caractère>    ::=  'a'..'z' | 'A'..'Z' | '_' | '0'..'9'
+<Mot>          ::=  <Caractère> | <Caractère> <Mot>
+<Prédicat>     ::=  'a'..'z' | 'a'..'z' <Mot>
+<Variable>     ::=  'A'..'Z' | 'A'..'Z' <Mot>
+<Programme>    ::=  <Clause> | <Clause> <Programme>
+<Clause>       ::=  <Terme> '.' | <Terme> ':-' <ListeTermes> '.'
+<ListeTermes>  ::=  <Terme> | <Terme> ',' <ListeTermes>
+<Terme>        ::=  <Variable> | <Predicat> | <Predicat> '(' <ListeTermes> ')' | <Tableau>
+<Tableau>      ::=  '[]' | '[' <ListeTermes> ']'
+            | '[' <ListeTermes> '|' <Tableau> ']' | '[' <ListeTermes> '|' <Variable> ']'
+\end{verbatim}
+
+Les grammaires non-contextuelles sont équivalentes aux automates à pile : ces derniers sont plus puissants que les automates finis (équivalents aux expressions régulières), mais moins puissants que les machines de Turing.
+
+Une sous classe des grammaires non contextuelles est celle des grammaires non-contextuelles déterministes. Une grammaire non contextuelle est dit déterministe si elle est équivalente à un automate à pile déterministe. Cette sous catégorie est intéressante puisqu'il existe alors des algorithmes en temps linéaire pour effectuer l'analyse syntaxique\ldots{} Je suppose que cette grammaire de Prolog est bien déterministe, mais je ne sais pas le montrer.
+
+De toute façon la structure de l'analyseur syntaxique que je vais utiliser me permet en théorie d'utiliser n'importe quelle grammaire non-contextuelle.
+
+\section{La représentation des programmes Prolog}
+
+C'est probablement la partie la plus importante du design de l'interpréteur Prolog, puisque la manière de stocker les programmes Prolog en Caml impactera toute la suite.
+
+\begin{minted}{ocaml}
+  type var = Id of string * int
+  type term = Var of var | Predicate of string * (term list)
+  type clause = Clause of term * (term list)
+\end{minted}
+
+Cette première structure permet de représenter le plus petit Prolog possible. Chaque variable est représentée par une chaîne de caractères, son nom, et un numéro. Le numéro permet un renommage facile des variables, qui est nécessaire pour éviter des conflits noms dans l'algorithme d'unification. Le type term est le plus important, un terme peut être une variable, où une structure composée d'une chaîne, le prédicat et une liste de termes. Ainsi \texttt{apprend(eve,\ mathématiques)} est un terme. Finalement une clause est un terme, qui est à gauche du symbole \texttt{:-}, et la liste des termes qui sont à droite. Un programme sera alors une liste de clauses, séparées par des points.
+
+Ce n'est pas moi qui ai inventé cette structure particulière : je l'ai retrouvée dans un diapo de cours en Haskell sur le langage Prolog, \cite{Smaill}. Une structure proche est utilisée en Lisp par Peter Norvig dans \cite{Norvig}.
+
+\begin{minted}{ocaml}
+  type var = Id of string * int
+  type table = Empty | NonEmpty of term * table | TVar of var
+  and term = Var of var | Predicate of string * (term list) | Table of table
+  type clause = Clause of term * (term list)
+\end{minted}
+
+L'ajout des listes Prolog (je les ai appelées tables ici pour les différencier des listes du langage Caml, mais ce n'est probablement pas le meilleur nom), rend la structure sensiblement plus complexe. J'ai choisi ce design pour pouvoir modéliser facilement une table comme \texttt{{[}a,\ b,\ c\ \textbar{}\ X{]}}. Ici \texttt{X} est une variable qui ne peut que représenter une table, on ne veut pas que cela puisse être un terme quelconque (comme \texttt{eve} exemple). C'est une très bonne chose de rendre impossible la représentation de programmes invalides dans le type des objets, mais cela rend certaines choses plus compliquées. Les variables sont présentes à différents endroits, et certaines ne peuvent représenter que des tableaux alors que d'autres peuvent représenter n'importe quel terme.
+
+J'ai mis un moment (plus ou moins les deux derniers mois) à me décider sur cette structure, et c'est parce que j'ai dû la changer un certain nombre de fois que j'ai réécrit beaucoup de choses pour qu'elles soient un peu plus modulables.
+
+\section{L'analyse syntaxique}
+
+Si j'ai bien appris une chose en écrivant un premier parser moi même sans reprendre de grandes idées existantes, c'est qu'il mieux vaut bien réfléchir avant si on veux être capable de modifier, ou même de relire son code après. Maintenant j'ai compris que le parsing est un art en soi, et j'ai décidé d'écrire un analyseur récursif descendant utilisant des combinateurs. J'ai appris les idées dans \cite{Ljunglof}.
+
+Je vois ici un parser comme une fonction qui à une chaîne de caractères à analyser renvoie un couple composé de la chaîne restante à analyser et une structure, un arbre produit par l'analyseur qui représente les caractères analysés. L'idée des combinateurs est de créer de nouveaux parsers plus complexes à partir de ceux existants. Voici la structure que produit le parser :
+
+\begin{minted}{ocaml}
+  type structure = S of string | V of var | L of table | T of term | C of clause | W of clause list | P of string | TL of term list
+\end{minted}
+
+Les parsers élémentaires que j'ai écrit directement permettent de reconnaître un caractère passé en paramètre et renvoient une structure \texttt{S\ chaîne} avec chaîne étant le caractère reconnu. J'en ai écrit d'autres permettant de reconnaître n'importe quelle lettre majuscule, ou minuscule, ou encore n'importe quel caractère valide.
+
+Ensuite j'utilise deux combinateurs : \texttt{<+>} et \texttt{<*>}. Pour des raisons de priorité des opérateurs en OCaml, j'ai renommé le \texttt{<*>} en \texttt{*\textasciitilde{}*}. Le combinateur \texttt{<+>} exprime le \emph{ou} \texttt{\textbar{}} des règles de grammaire. Le combinateur \texttt{*\textasciitilde{}*} quant à lui premet de chaîner les parsers, il n'est pas représenté dans les règles de grammaire, les symboles sont juste accolés. Ainsi la règle \texttt{<Mot>\ ::=\ <Caractère>\ \textbar{}\ \textless{}Caractère>\ \textless{}Mot>} se traduirait par :
+
+\begin{minted}{ocaml}
+  let rec mot = caractère <+> caractère *~* mot
+\end{minted}
+
+Malheureusement, on ne peut pas exprimer directement la récursion ainsi\ldots{} Même si cela fonctionne très bien pour les règles non récursives, une limitation de OCaml ---pour éviter de déclarer des structures comme \texttt{let\ rec\ a\ =\ a}--- impose d'écrire quelques lignes en plus, rendant le code moins lisible.
+
+Le dernier opérateur que je définis est \texttt{>\textasciitilde{}>}, d'une manière très similaire au \emph{bind} \texttt{>>=} monadique. Cet opérateur prend à gauche un parser, et à droite une fonction d'une liste de structures vers une structure (en simplifiant). La fonction peut par exemple décrire comment construire un nouveau mot à partir d'un caractère et d'un mot.
+
+\section{Les fonctions de base sur les programmes}
+
+\begin{itemize}
+  \item
+    \texttt{string\_of\_term\ :\ term\ ->\ string} Transforme un terme en une chaîne de caractères.
+  \item
+    \texttt{var\_in\_term\ :\ var\ ->\ term\ ->\ bool} Teste si une variable est dans un terme.
+  \item
+    \texttt{var\_in\_eql\ :\ var\ ->\ (term\ *\ term)\ list\ ->\ bool} Teste si une variable est dans une liste de couples de termes.
+  \item
+    \texttt{replace\_var\_in\_term\ :\ var\ ->\ term\ ->\ term\ ->\ term} Remplace une variable par un terme dans un terme. Attention, la fonction échoue si on essaie de remplacer une variable qui est censée représenter un tableau par un terme qui n'est pas un tableau.
+  \item
+    \texttt{replace\_var\_in\_eql\ :\ var\ ->\ term\ ->\ (term\ *\ term)\ list\ ->\ (term\ *\ term)\ list} Remplace une variable par un terme dans une liste de couples de termes. Mêmes limitations.
+  \item
+    \texttt{find\_vars\_in\_termlist\ :\ term\ list\ ->\ term\ list} Liste toutes les variables d'une liste de termes.
+  \item
+    \texttt{find\_tvars\_in\_term\ :\ term\ ->\ var\ list} Liste toutes les variables représentant un tableau dans un terme.
+  \item
+    \texttt{find\_tvars\_in\_termlist\ :\ term\ list\ ->\ var\ list} Liste toutes les variables représentant un tableau dans une liste de termes.
+  \item
+    \texttt{find\_tvars\_in\_clause\ :\ clause\ ->\ var\ list} Liste toutes les variables représentant un tableau dans une clause.
+\end{itemize}
+
+\section{La correction des types}
+
+Le problème est qu'une même variable ne peut pas représenter n'importe quel terme si l'on sait que la variable ne peut représenter que des tableaux. La solution est de rechercher toutes les variables qui ne peuvent représenter que des tableaux, et forcer toutes leurs occurences par des variables qui ne peuvent représenter que des tableaux.
+
+Ensuite j'ai juste écrit des fonctions composant le parser et le vérificateur de types.
+
+Dans toute la suite du code il ne faut jamais qu'une variable appraisse à un endroit comme pouvant représenter n'importe quel terme et dans un autre comme pouvant ne représenter que des tableaux.
+
+\section{L'algorithme derrière Prolog}
+
+Ma référence en ce qui concerne l'algorithme utilisé par Prolog est \cite{NilssonMaluszynski}.
+
+Ce qui semble être le premier article traitant du type de résolution utilisé par Prolog est \cite{Robinson}. Cet article introduit l'unification, et le \emph{principe de résolution} (Resolution Principle) dont dérive la SLD-resolution (Linear resolution for Definite clauses with Selection function) utilisée par Prolog.
+
+Une \emph{clause définie}, aussi nommée clause de Horn est de la forme \(P_1 \land P_2 \land ... \land P_n \Rightarrow Q\), que l'on exprime souvent comme une grande disjonction de littéraux \(\neg P_1 \lor \neg P_2 \lor ... \lor \neg P_n \lor Q\). Une clause de Horn est donc une disjonction de littéraux comportant au plus un littéral positif. Nous utilisons en Prolog que des clauses de Horn qui possèdent exactement un littéral positif \up{[citation needed]}.
+
+Les clauses de Horn sont contraignantes, par exemple \(\neg P \Rightarrow Q\) n'est pas une clause de Horn. On peut par contre exprimer \((P_1 \lor P_2) \Rightarrow Q\) avec des clauses de Horn, il suffit d'écrire les deux clauses \(P_1 \Rightarrow Q\) et \(P_2 \Rightarrow Q\).
+
+Les versions premières de Prolog se limitent aux clauses de Horn, pour une principale raison : la \emph{correction} et la \emph{complétude} (\emph{soundness} and \emph{completeness}) ont été montrée pour la SLD-resolution, qui n'est valide que sur des clauses de Horn. Pour les citations (un peu compliquées) : la SLD-resolution est introduite par Robert Kowalski en 1974, la correction est montrée par Keith Clark en 1979, la complétude a été montrée premièrement par Robert Hill en 1974, mais quelque chose de plus fort a été montré par Clark en 1979.
+
+\section{L'unification}
+
+\begin{itemize}
+  \item
+    On définit une substitution comme un ensemble de couples (variable, terme). Le terme est inséré à la place de la variable.
+  \item
+    L'unification se fait entre deux termes \(t_1\) et \(t_2\). Deux termes s'unifient s'il existe une substitution \(\theta\) des variables de \(t_1\) et de \(t_2\) telle que \(\theta(t_1) = \theta(t_2)\). Une telle substitution est appelée un unifieur.
+  \item
+    On définit une loi de composition sur ces substitutions. \(\theta_2\theta_1(t) = \theta_2(\theta_1(t))\) (J'ai l'impression que j'ai défini la composition dans l'ordre inverse de ce que l'on peut lire dans la littérature\ldots{} à modifier)
+  \item
+    Si \(\theta_1\) et \(\theta_2\) sont deux unifieur, et s'il existe une substitution \(\sigma\) telle que \(\theta_2 = \sigma\theta_1\), on dit que l'unifieur \(\theta_1\) est plus général que \(\theta_2\), ce que l'on note \(\theta_2\preceq\theta_1\)
+  \item
+    Il existe des unifieurs plus généraux que tous les autres. On appelle \emph{Most General Unifier}, que j'abrège \emph{MGU}, un tel unifieur. En fait la relation \(\preceq\) n'est pas antisymétrique, donc il peut exister deux unifieurs \(\theta_1\) et \(\theta_2\) tels que \(\theta_1\preceq\theta_2\) et \(\theta_2\preceq\theta_1\). Le \emph{MGU} est en fait unique au renommage des variables près.
+\end{itemize}
+
+La description de l'algorithme d'unification, qui permet de trouver l'unifieur le plus général est très bien faite dans \cite{NilssonMaluszynski}. De plus, il en est donné une prouve sa terminaison et de sa correction, ce qui est très bon point.
+
+L'algorithme manipule des systèmes d'équations. Un système d'équations \texttt{\{X1\ =\ t1,\ ...,\ Xn\ =\ tn\}} est dit sous forme résolue si les \texttt{(Xn)} sont des variables, les \texttt{(tn)} sont des termes et aucune des variables \texttt{Xn} n'apparait dans les \texttt{tn}. Si \texttt{\{X1\ =\ t1,\ ...,\ Xn\ =\ tn\}} est sous forme résolue, alors \texttt{\{X1/t1,\ ...,\ Xn/tn\}} est un \emph{MGU}.
+
+\begin{verbatim}
+E est l'ensemble des équations. Au départ il n'y en a qu'une seule :
+Par exemple E = {etudiant_de(E,P) = étudiant_de(E, pierre)}.
+
+Répéter tant que E change
+(jusqu'à ce que l'on ne puisse plus rien appliquer aux équations)
+    Sélectionner une équation  s = t dans E;
+    Si s = t est de la forme :
+        f(s1, ..., sn) = f(t1, ..., tn) avec n >= 0
+            Alors remplacer l'équation par s1=t1 ... sn=tn
+        f(s1, ..., sm) = g(t1, ..., tn) avec f != g
+            Alors ÉCHEC
+        X = X
+            Alors supprimer l'équation
+        t = X où t n'est pas une variable
+            Alors remplacer l'équation par X = t
+        X = t où X != t et X apparait plus d'une fois dans E
+            Si X est un sous-terme de t Alors ÉCHEC
+            Sinon on remplace toutes les autres occurences de X par t
+\end{verbatim}
+
+\begin{itemize}
+  \item
+    Il est prouvé que cet algorithme termine et renvoie soit échec, soit un ensemble équivalent des équations sous \emph{forme résolue}.
+  \item
+    Le test \texttt{Si\ X\ est\ un\ sous-terme\ de\ t\ Alors\ ÉCHEC} est en pratique pas réalisé dans la plupart des implémentations Prolog (pas comme ça en tout cas), il est très lent et le cas n'arrive que très peu en pratique. On peut donc avoir des boucles infinies\ldots{} Les versions ``modernes'' gèrent les unifications de structures infinies\ldots{} Une citation de \cite{Norvig} ``\emph{This represents a circular, infinite unification. Some versions of Prolog, notably Prolog II (Giannesini et al.~1986), provide an interpretation for such structures, but it is tricky to define the semantics of infinite structures.}''
+  \item
+    \textbf{Attention !} Aucune variable ne doit apparaitre en même temps dans les deux termes que l'on cherche à unifier : Lorsque l'on veut unifier \texttt{etudiant\_de(E,P)} et \texttt{etudiant\_de(E,pierre)}, les deux variables \texttt{E} ne doivent pas être nommées de la même manière.
+  \item
+    L'algorithme n'est qu'une grande disjonction de cas, et le compléter pour prendre en compte des tableaux n'a pas été extrêmement difficile\ldots{} Pour unifier deux tableaux il suffit d'unifier la tête, puis récursivement d'unifier la queue. L'algorithme devient par contre nettement plus long. Je l'ai écrit en utilisant des \emph{sets}, dans un style impératif, ce qui après de longues fonctions récursives peut paraître rafraîchissant.
+\end{itemize}
+
+Mais à quoi sert l'unification ? Soit la clause du programme Prolog \texttt{etudiant\_de(E,P):-apprend(E,M),\ enseigne(P,M).}. Si l'on cherche à réaliser la requête \texttt{?-étudiant\_de(E,\ pierre)}, on unifie \texttt{étudiant\_de(X,\ pierre)} avec \texttt{etudiant\_de(E,P)}, le membre de gauche de la clause. La substitution thêta remplace \texttt{P} par \texttt{pierre} et \texttt{E} par \texttt{X}. Pour continuer la recherche, on applique la substitution au termes de droite de la clause, ce qui nous donne la nouvelle requête.
+
+\section{Le backtracking}
+
+Voilà la manière dont j'ai compris l'algorithme :
+\begin{itemize}
+  \item
+    On cherche à satisfaire une requête \((t_1, t_2, ... t_n)\).
+  \item
+    On a \(t_1\) qui s'unifie avec \(h^i\), où \(h^i \leftarrow t^i_1,...t^i_m\) est une la i-ème clause du programme. On a auparavant renommé toutes les variables de la clause qui étaient présentes dans \(t_1\), sinon on ne peut pas appeler l'algorithme d'unification. On a donc un \emph{MGU}, que l'on nomme \(\theta_1\).
+  \item
+    On applique \(\theta_1\) au second membre de la clause, et à \((t_2, ... t_n)\). La nouvelle requête à satisfaire est donc \((\theta_1(t^i_1), ... \theta_1(t^i_m), \theta_1(t_2), ..., \theta_1(t_n))\)
+  \item
+    On récure, si on a à montrer \(\theta_k( ... \theta_2(\theta_1(\emptyset)) ...)\) alors c'est gagné, puisque \(\emptyset\) signifie toujours vrai. La composée \(\theta_{tot}\) des \(\theta_k\) est une substitution des variables de la requête de départ. Ce qu'on veut renvoyer à l'utilisateur c'est l'image des variables de \(t_1, ... t_n\) par \(\theta_{tot}\).
+  \item
+    Si \(t_1\) ne s'unifie avec aucun des \(h^i\), ça ne sert à rien d'essayer d'unifier \(t_2\), puisque de toute façon on garde \(t_1\) dans la nouvelle requête. Alors il faut remonter. C'est à dire qu'il faut essayer les autres unifications à l'étape d'avant.
+\end{itemize}
+
+Comment renommer les clauses pour avoir des noms libres à chaque unification ? On peut utiliser le niveau de récursion comme identifiant, que l'on place dans l'entier transporté avec la variable.
+
+\begin{itemize}
+  \item
+    On veut des variables numérotées à 0 dans la requête initiale
+  \item
+    On passe 1 lors du premier appel de sld : la première clause utilisée est renommée à 1, les variables de la requête sont toutes à 0.
+  \item
+    La deuxième clause utilisée est renommée à 2, dans la requête il y a des variables à 1 et à 0, etc\ldots{} pas de conflits !
+\end{itemize}
+
+\section{Discussion, histoire, etc\ldots{}}
+
+J'ai beaucoup aimé la lecture de la préface de \cite{Sterling}. Robert Kowalski raconte son premier contact avec Prolog, le langage ayant été initié vers 1972 par Alain Colmerauer et Philippe Roussel à Marseille. Kowalski y est invité, mais les serveurs de calcul ne sont pas là, ils se connectent par telnet sur une machine IBM à Grenoble ! Pour la petite histoire, le premier message que Kowalski reçoit à l'exécution de son programme est ``DEBORDEMENT DE PILE'' !
+
+Kowalski a introduit le SLD-résolution, entre autre nombreux travaux sur les algorithmes de Prolog. Il a eu deux étudiants en thèse. Keith Clark, qui a montré la correction et la complétude de la SLD-résolution et qui a introduit le principe de \emph{negation as failure}. David H. D. Warren lui a écrit le premier compilateur pour Prolog, utilisant les \emph{machines abstraites de Warren}.
+
+J'ai un peu recherché qui travaillait encore sur Prolog et la programmation logique en France. Tous sont plus ou moins liés à l'équipe \emph{PARTOUT} de l'Inria : \url{https://team.inria.fr/partout/}
+
+\section{Mémoïsation et évitement des boucles infinies}
+
+\emph{'cause you're dumb!}
+
+La méthode traditionnelle pour éviter les problèmes de boucles infinies est d'utiliser des \emph{cuts}, un symbole \texttt{!} à écrire dans le code qui coupe impérativement l'arbre de recherche si l'on en vient à montrer ce terme\ldots{} \emph{A priori} je ne suis pas fan, mais c'est ce que tout le monde utilise. À la place je me suis tourné vers la mémoïsation.
+
+J'ai eu ma petite révélation quand j'ai compris qu'il existait deux David Warren qui ont travaillé sur Prolog, et qui ont même publié des papiers la même année, pouvant être référencés en même temps dans les mêmes articles ! Cette fois je m'intéresse à cet article de David S. Warren : \cite{Warren}
+
+L'idée est de mémoriser les requêtes que l'on a déjà résolues, pour ensuite accélérer l'exécution. Un des avantages de cette méthode est de pouvoir éviter certaines boucles infinies\ldots{}
+
+Je n'ai pas repris la mémoïsation globale, (il faudrait que je réessaie, mais ce n'est pas aussi évident de l'écrire convenablement que de le dire). La seule chose que j'ai fait, c'est d'associer à chaque terme \(t_0\) que l'on cherche à montrer une généalogie, c'est à dire les termes \(t_1, t_2, ... t_n\), tels \(t_k\) appartienne au membre de droite de la clause dont on a unifié la tête avec \(t_{k+1}\). ---Gardons le terme généalogie, qui est bien plus clair que ce que je viens d'écrire.--- La seule chose que je vérifie, c'est qu'il n'y ait pas deux termes identique (à une bijection des variables près\ldots).
+
+Qu'est-ce que ça change dans l'exécution des programmes :
+
+\begin{verbatim}
+natural(zero).
+natural(s(N)) :- natural(N).
+
+?- natural(X)
+\end{verbatim}
+
+Ce programme renvoie un à un tous les entiers naturels quand on l'exécute sans vérification des boucles : \texttt{zero}, \texttt{s(zero)}, \texttt{s(s(zero))}\ldots{} Avec la vérification, il renvoie juste \texttt{zero}.
+
+\begin{verbatim}
+natural(s(N)) :- natural(N).
+natural(zero).
+
+?- natural(X)
+\end{verbatim}
+
+Ce programme ne renvoie rien sans vérification (boule infinie, puis dépassement de pile), mais renvoie juste \texttt{zero} avec vérification.
+
+\begin{verbatim}
+natural(zero).
+natural(s(N)) :- natural(N).
+
+?- natural(s(s(s(zero))))
+\end{verbatim}
+
+Ce programme renvoie \texttt{vrai} pour les deux algorithmes.
+
+Est-ce que c'est vraiment ça que je cherche comme comportement ? Mérite réflexion\ldots{} D'un certain point de vue il semble plus agréable de ne pas avoir de différence dans le résultat en organisant les clauses dans un ordre différent\ldots{}
+
+Une application sympa est ma carte en Prolog du métro londonnien (à la toute fin du code). On peut maintenant facilement définir la commutativité :
+
+\texttt{connected(X,\ Y,\ L):-connected(Y,\ X,\ L).}
+
+On peut demander \texttt{path(oxford\_circus,\ charing\_cross,\ R)}, tous les chemins entre deux stations, et le programme ne part pas dans une boucle infinie. Il renvoie tous les chemins qui ne passent pas deux fois par la même station intermédiaire.
+
+\section{La négation}
+
+Cette fois il me faut réfléchir à la négation en Prolog. C'est une sortie des clauses de Horn. C'est à faire, mais là il n'y a qu'une seule manière de s'y prendre, c'est d'utiliser la \emph{negation as failure} bien décrite dans \cite{Clark}. C'est néanmoins très loin de ce que l'on pourrait espérer d'une négation logique.
+
+La négation c'est fait ! Avec, on peut encore améliorer mon petit programme du métro londonien : maintenant il n'affiche que les chemins stricts d'\emph{Oxford Circus} à \emph{Charing Cross} !
+
+\section{Le Cluedo, une synthèse}
+
+L'article que j'avais trouvé traitant du Cluedo est toujours là : \cite{Aartun}. J'ai le sentiment qu'il manque plusieurs choses au minuscule Prolog que j'avais écrit pour pouvoir espérer un programme de Cluedo en Prolog :
+
+\begin{itemize}
+  \item
+    Des listes
+  \item
+    Des moyens de couper les arbres de recherche et d'éviter les boucles infinies
+  \item
+    Une sorte de négation
+\end{itemize}
+
+Le premier est fait, pour le second, mon implémentation est peut être suffisante, peut-être pas. Le dernière est encore à faire, ce qui pourrait ne pas être trop difficile, mais qui donne une négation un peu limitée, et donc délicate à manipuler.
+
+Ce que je n'ai pas envie d'implémenter :
+
+\begin{itemize}
+  \item
+    Des entiers naturels, ou pire des flottants (j'ai l'impression que je peux les éviter dans mon programme Cluedo)
+  \item
+    Tout plein de fonctions et d'opérateurs infixés qui sont définis dans les Prolog modernes
+  \item
+    En particulier des fonctions d'affichages, d'entrée-sortie\ldots{}
+\end{itemize}
+
+Bon, mon implémentation de Prolog est déjà relativement (avec les listes) plus évoluée que la plupart des projets amateurs que j'ai trouvés sur Internet.
+
+Quelques règles simplifiées du Cluedo :
+
+\begin{itemize}
+  \item
+    Il y a un certain nombre \(N_{joueurs}\) de joueurs et \(N_{cartes}\) de cartes.
+  \item
+    On suppose que \(N_{cartes} \equiv 1 \pmod {N_{joueurs}}\). Alors chaque joueur reçoit \[c = \frac{N_{cartes}-1}{N_{joueurs}}\]
+  \item
+    Le but du joueur est de deviner la carte qu'aucun joueur ne possède.
+  \item
+    Chaque joueur a le droit à son tour d'émettre une supposition, par exemple : ``Le joueur \(A\) suppose que le joueur \(B\) possède une des trois cartes suivantes \((a, b, c)\)''. Si le joueur \(B\) possède une des cartes \((a, b, c)\), il doit en montrer une ---celle de son choix--- au joueur \(A\), sans la révéler aux autres joueurs de la partie.
+\end{itemize}
+
+\textbf{It works !}
+
+Un exemple de mon programme de Cluedo (pas encore fini) !
+
+\begin{verbatim}
+joueurs([samuel, pierre, benjamin]).
+cartes([cuisine, chambre, salle_de_bain, salon, garage, salle_a_manger, veranda]).
+
+possede(samuel, cuisine).
+possede(samuel, chambre).
+
+possede_aucune_triplet(pierre, [salle_de_bain, salon, cuisine]).
+possede_une_des(pierre, [garage, cuisine, salon]).
+\end{verbatim}
+
+À la requête \texttt{possede(pierre,\ garage)}, le programme répond
+\emph{Vrai} !
+
+\bibliographystyle{plainnat-fr}
+\bibliography{biblio}
+
+\appendix
+
+\section{Code}
+\codefile{types.ml}
+\codefile{parser.ml}
+\codefile{utilitary.ml}
+\codefile{unification.ml}
+\codefile{solver.ml}
+\codefile{normalize.ml}
+\codefile{tests.ml}
+\codefile{main.ml}
+
+\end{document}

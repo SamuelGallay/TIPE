@@ -9,6 +9,8 @@ ListOfFiles=("parser.ml"
              "types.ml"
              "unification.ml"
              "utilitary.ml"
+             "tests.ml"
+             "main.ml"
              "normalize.ml")
 
  

@@ -6,3 +6,10 @@ prolog.ml
 Brouillon.ipynb
 Code/_build
 Code/dune-project
+Rapport/_minted-rapport
+Rapport/rapport.aux
+Rapport/rapport.bbl
+Rapport/rapport.blg
+Rapport/rapport.log
+Rapport/rapport.out
+Rapport/.auctex-auto
