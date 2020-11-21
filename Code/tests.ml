@@ -25,7 +25,7 @@ let test_unification str_r str_c =
       VarMap.iter (fun (Id (s, _)) term -> Format.printf "%s <- %s\n%!" s (string_of_term term)) t
   | None -> Format.printf "No unification\n%!"
 
-let _ =
+let test1 () =
   test_unification "etudiant_de(E, pierre)" "etudiant_de(F,P)";
   (* F/E et P/pierre *)
   test_unification "etudiant_de(F,P)" "etudiant_de(E, pierre)";
@@ -38,13 +38,15 @@ let _ =
   test_unification "[a, a, b, c]" "[A | A]";
   test_unification "[[a, b, c], a, b, c]" "[A | A]"
 
-let _ =
+let test2 () =
   test_eq "table(A, B)" "table(C, C)";
   test_eq "table(A, A)" "table(B, C)";
   test_eq "table(A, B)" "table(A, B)";
   test_eq "[A, B, C, pinguin(AB, BA) | D]" "[Z, Y, X, pinguin(BA, AB) | W]"
 
 ;;
+
+let test3 () =
 let world =
   read_program
     "
@@ -69,6 +71,7 @@ req "enseigne(alice, physique)";
 req "enseigne(alice, mathematiques)"
 
 ;;
+let test4 () =
 let world =
   read_program
     "
@@ -102,6 +105,8 @@ req "connected(oxford_circus, bond_street, L)";
 req "path(oxford_circus, charing_cross, R)"
 
 ;;
+
+let test5 () =
 let world =
   read_program
     "
@@ -136,6 +141,7 @@ req "adjacent(X, Y, [a,b,c,d])";
 req "equal([a, b], X)"
 
 ;;
+let test6 () =
 let world =
   read_program
     "
@@ -153,9 +159,10 @@ invalid(not(X)) :- satisfiable(X).
 "
 in
 let req = request world "standard" in
-req "satisfiable(false)"
+req "and(true, true)"
 
 ;;
+let test7 () =
 let world = read_program "
 natural(s(N)) :- natural(N).
 natural(zero).
@@ -172,6 +179,7 @@ req "natural(X)"
 *)
 
 ;;
+let test8 () =
 let world =
   read_program
     "
@@ -208,6 +216,7 @@ let req = request world "neg" in
 req "useful_path(oxford_circus, charing_cross, R)"
 
 ;;
+let test9 () =
 let world = read_program "
 natural(s(N)) :- natural(N).
 natural(zero).
@@ -216,6 +225,7 @@ let req = request world "neg" in
 req "naf(natural(s(s(zero2))))"
 
 ;;
+let test10 () =
 let world =
   read_program
     "
@@ -293,9 +303,51 @@ req "difference([a, b, c, c, d], [b, c], L)";
 req "longueur([a, b, c], K)"
 
 ;;
+let test11 () =
 let world = read_program "
 h(sam).
 h(sam).
 test(X) :- h(sam)." in
 let req = request world "neg" in
 req "test(X)"
+
+
+;;
+
+(* nationality pet cigarette drink house-color *)
+let zebra () =
+  let req =
+  request
+    (read_program
+"
+member(X, [X | Xs]).
+member(X, [Y | Ys]) :- member(X, Ys).
+
+isright(L, R, [L, R | T]).
+isright(L, R, [H | T]) :- isright(L, R, T).
+
+nextto(A, B, X) :- isright(A, B, X).
+nextto(A, B, X) :- isright(B, A, X).
+
+equal(X, X).
+
+zebra(H, W, Z):-
+equal(H, [[norwegian, _, _, _, _], _, [_, _, _, milk, _], _, _]),
+member([englishman, _, _, _, red], H),
+member([spaniard, dog, _, _, _], H),
+member([_, _, _, coffee, green], H),
+member([ukrainian, _, _, tea, _], H),
+member([_, snails, winston, _, _], H),
+member([_, _, kools, _, yellow], H),
+member([_, _, luckystrike, orangejuice, _], H),
+member([japanese, _, parliaments, _, _], H),
+nextto([norwegian, _, _, _, _], [_, _, _, _, blue], H),
+isright([_, _, _, _, ivory], [_, _, _, _, green], H),
+nextto([_, _, chesterfields, _, _], [_, fox, _, _, _], H),
+nextto([_, _, kools, _, _], [_, horse, _, _, _], H),
+member([W, _, _, water, _], H),
+member([Z, zebra, _, _, _], H).
+")
+    "standard"
+in
+req "zebra(Houses, WaterDrinker, ZebraOwner)"

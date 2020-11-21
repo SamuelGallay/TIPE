@@ -4,13 +4,13 @@ open Types
 let rec string_of_term = function
   | Predicate (p, []) -> p
   | Predicate (p, l) -> p ^ "(" ^ String.concat ", " (List.map string_of_term l) ^ ")"
-  | Var (Id (s, n)) -> s ^ string_of_int n
+  | Var (Id (s, n)) -> s ^ "-" ^ string_of_int n
   | Table Empty -> "[]"
-  | Table (TVar (Id (s, n))) -> s ^ string_of_int n
+  | Table (TVar (Id (s, n))) -> s ^ "-" ^ string_of_int n
   | Table (NonEmpty (t, l)) ->
       let rec aux = function
         | Empty -> ""
-        | TVar (Id (s, n)) -> "|" ^ s ^ string_of_int n
+        | TVar (Id (s, n)) -> "|" ^ s ^ "-" ^ string_of_int n
         | NonEmpty (t, l) -> ", " ^ string_of_term t ^ aux l
       in
       "[" ^ string_of_term t ^ aux l ^ "]"

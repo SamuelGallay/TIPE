@@ -47,8 +47,19 @@ let rmot =
   let aux self = rchar <+> rchar *~* self >~> function [ S s; S s' ] -> [ S (s ^ s') ] | l -> l in
   fix aux
 
+let iter = ref 0
+
+let newvar () =
+  iter := !iter + 1;
+  V (Id ("$" ^ string_of_int !iter, 0))
+
 let variable =
-  rup >~> (function [ S s ] -> [ V (Id (s, 0)) ] | l -> l) <+> rup *~* rmot >~> function
+  rup
+  >~> (function [ S s ] -> [ V (Id (s, 0)) ] | l -> l)
+  <+> rsym '_'
+  >~> (function [ S _ ] -> [ newvar () ] | l -> l)
+  <+> rup *~* rmot
+  >~> function
   | [ S s; S s' ] -> [ V (Id (s ^ s', 0)) ]
   | l -> l
 
