@@ -1,13 +1,11 @@
 \documentclass[aspectratio=43]{beamer}
 
 \usepackage[T1]{fontenc}
-
+\usepackage[sfdefault, light]{FiraSans}
 \usepackage{xcolor}
 \usepackage{diagbox}
-
-\usepackage[sfdefault, light]{FiraSans}
 \usepackage{fancyvrb}
-%\usepackage{minted}
+\usepackage{minted}
 \usepackage{tikz}
 \usetikzlibrary{shapes}
 \usepackage[french]{babel}
@@ -20,32 +18,35 @@
 
 \date{\today}
 
+\defbeamertemplate{section in toc}{sections numbered roman}{%
+  \leavevmode%
+  \MakeUppercase{\romannumeral\inserttocsectionnumber}.\ %
+  \inserttocsection\par}
+\setbeamertemplate{section in toc}[sections numbered roman]
+
+
+\setbeamertemplate{footline}[text line]{%
+  \parbox{0.8\linewidth}{
+    \vspace*{-8pt}\MakeUppercase{\romannumeral\insertsectionnumber}.  \insertsection
+  }
+  \hfill%
+  \parbox{0.15\linewidth}{
+    \vspace*{-8pt}\raggedleft\insertpagenumber
+  }
+}
+
+\setbeamertemplate{navigation symbols}{}
+
 \begin{document}
 
 \frame{\titlepage}
 
 
-\begin{frame}
-\frametitle{Contrôle d'accès : motivation}
-
-\begin{center}
-\begin{tikzpicture}
-  \node[draw, ellipse] (S) at (0,0) {Sujet};
-  \node[draw, ellipse] (O) at (8,2) {Objet};
-  \node[draw, diamond, aspect=2.5] (C) at (6,0) {Contrôleur};
-  \node[draw, rectangle,rounded corners=3] (R) at (2.5, 0) {Requête};
-  \node[draw, rectangle,rounded corners=3] (D) at (6, -2) {Décision};
-  \node[draw, rectangle] (A) at (4, 2) {Autorisations};
-
-
-  \draw[->,>=latex](S) -- (R);
-  \draw[->,>=latex](R) -- (C);
-  \draw[->,>=latex](O) -- (C);
-  \draw[->,>=latex](C) -- (D);
-  \draw[->,>=latex](A) -- (C);
-\end{tikzpicture}
-\end{center}
+\begin{frame}{Plan de l'exposé}
+\tableofcontents
 \end{frame}
+
+\section{Contrôle d'accès}
 
 
 \begin{frame}
@@ -253,9 +254,13 @@ $sous\_objet(o_{2}, o_{1})$
     \begin{itemize}
       \item \it{Alice peut-elle accéder au fichier A ?}
       \item \it{Qui est-ce qui peut accéder au fichier A ?}
+      \item \it{À quels fichiers Alice peut-elle accéder ?}
     \end{itemize}
 \end{enumerate}
 \end{frame}
+
+
+\section{Logique et Prolog}
 
 \begin{frame}
 \frametitle{Logique du premier ordre, ou calcul des prédicats}
@@ -263,7 +268,7 @@ $sous\_objet(o_{2}, o_{1})$
 \begin{itemize}
 \item Des prédicats, des variables, des fonctions, les connecteurs logiques $\vee$ et $\wedge$, et les quantificateurs $\exists$ et $\forall$.
 
-\item Les règles sont des \textit{formules bien définies} dont toutes les variables sont liées (formules clauses).
+\item Les règles sont des \textit{formules bien définies} dont toutes les variables sont liées (formules closes).
 
 \item Mise sous forme prénexe.
 
@@ -300,7 +305,7 @@ $sous\_objet(o_{2}, o_{1})$
 
 \begin{frame}[fragile]
   \frametitle{Exemple de programme Prolog}
-\begin{Verbatim}
+\begin{minted}{prolog}
 apprend(eve, mathematiques).
 apprend(benjamin, informatique).
 apprend(benjamin, physique).
@@ -311,7 +316,7 @@ enseigne(pierre, informatique).
 étudiant_de(E,P):-apprend(E,M), enseigne(P,M).
 
 étudiant(E, pierre) ?
-\end{Verbatim}
+\end{minted}
 \end{frame}
 
 
@@ -475,6 +480,186 @@ Termine et est correct.
   \end{alertblock}
  
   \end{columns}
+\end{frame}
+
+\section{Implémentation de l'interpréteur Prolog}
+
+\begin{frame}[fragile]
+  \frametitle{L'analyse syntaxique}
+
+Syntaxe minimale de Prolog sous la forme de Backus-Naur :
+\begin{columns}
+\column{\dimexpr\paperwidth-60pt}
+\begin{Verbatim}[fontsize=\footnotesize]
+<Caractère>    ::=  'a'..'z' | 'A'..'Z' | '_' | '0'..'9'
+<Mot>          ::=  <Caractère> | <Caractère> <Mot>
+<Prédicat>     ::=  'a'..'z' | 'a'..'z' <Mot>
+<Variable>     ::=  'A'..'Z' | 'A'..'Z' <Mot>
+<Programme>    ::=  <Clause> | <Clause> <Programme>
+<Clause>       ::=  <Terme> '.' | <Terme> ':-' <ListeTermes> '.'
+\end{Verbatim}
+\end{columns}
+
+\vspace{1em}
+
+Implémentation d'un analyseur syntaxique récursif descendant.
+
+\vspace{1em}
+
+\begin{minted}[fontsize=\footnotesize]{ocaml}
+type var = Id of string * int
+type term = Var of var | Predicate of string * (term list)
+type clause = Clause of term * (term list)
+\end{minted}
+
+\end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{L'unification}
+  L'ensemble d'équations est représenté grace à un \texttt{Set}  en OCaml.
+
+  \vspace{1em}
+
+  Les substitutions sont des tableaux associatifs des variables sur les termes.
+
+  \vspace{1em}
+
+  Accès, insertion et suppression en $O(log(n))$.
+\end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{L'arbre de recherche}
+  Utilisation de l'évaluation paresseuse pour représenter l'arbre possiblement infini :
+\begin{minted}[fontsize=\footnotesize]{ocaml}
+type 'a tree = Leaf of 'a | Node of 'a tree Lazy.t list
+\end{minted}
+
+\vspace{1em}
+
+Je transforme l'arbre en une séquence possiblement infinie de ses feuilles (les solutions) :
+
+\begin{minted}[fontsize=\footnotesize]{ocaml}
+let rec to_seq = function
+| Leaf str -> Seq.return str
+| Node tl -> Seq.flat_map
+    (fun par -> to_seq (Lazy.force par)) (list_to_seq tl)
+\end{minted}
+
+\vspace{1em}
+
+J'applique des filtres sur cette séquence, et il suffit d'itérer les solutions.
+
+\end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{L'arbre de recherche}
+\begin{columns}
+\column{\dimexpr\paperwidth-40pt}
+\begin{minted}[fontsize=\footnotesize]{ocaml}
+let rec sld_tree world req subs n =
+match req with
+| [] -> Leaf subs
+| head_request_term :: other_request_terms ->
+   Node
+    (List.filter_map
+      (fun c ->
+        let (Clause (left_member, right_member)) = rename n c in
+        match mgu head_request_term left_member with
+         | None -> None
+         | Some unifier ->
+           Some
+            ( lazy
+            (sld_tree world
+            (apply_subst_on_termlist unifier
+                (right_member @ other_request_terms))
+            (unifier :: subs) (n + 1)) ))
+    world)
+\end{minted}
+\end{columns}
+\end{frame}
+
+\section{Tests de l'implémentation}
+
+\begin{frame}[fragile]
+  \frametitle{Le problème du zèbre}
+\begin{Verbatim}[fontsize=\footnotesize]
+There are five houses.
+The Englishman lives in the red house.
+The Spaniard owns the dog.
+Coffee is drunk in the green house.
+The Ukrainian drinks tea.
+The green house is immediately to the right of the ivory house.
+The Old Gold smoker owns snails.
+Kools are smoked in the yellow house.
+Milk is drunk in the middle house.
+The Norwegian lives in the first house.
+The man who smokes Chesterfields lives in the house
+        next to the man with the fox.
+Kools are smoked in the house next to the house
+        where the horse is kept.
+The Lucky Strike smoker drinks orange juice.
+The Japanese smokes Parliaments.
+The Norwegian lives next to the blue house.
+
+Now, who drinks water? Who owns the zebra?
+\end{Verbatim}
+\end{frame}
+
+
+\begin{frame}[fragile]
+  \frametitle{Le problème du zèbre}
+\begin{minted}{prolog}
+member(X, [X | Xs]).
+member(X, [Y | Ys]) :- member(X, Ys).
+
+isright(L, R, [L, R | T]).
+isright(L, R, [H | T]) :- isright(L, R, T).
+
+nextto(A, B, X) :- isright(A, B, X).
+nextto(A, B, X) :- isright(B, A, X).
+
+equal(X, X).
+\end{minted}
+\end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{Le problème du zèbre}
+\begin{minted}{prolog}
+zebra(H, W, Z):-
+equal(H, [[norwegian, _, _, _, _], _,
+          [_, _, _, milk, _], _, _]),
+member([englishman, _, _, _, red], H),
+member([spaniard, dog, _, _, _], H),
+...
+nextto([norwegian, _, _, _, _], [_, _, _, _, blue], H),
+isright([_, _, _, _, ivory], [_, _, _, _, green], H),
+...
+member([W, _, _, water, _], H),
+member([Z, zebra, _, _, _], H).
+
+zebra(Houses, WaterDrinker, ZebraOwner) ?
+\end{minted}
+\end{frame}
+
+
+\begin{frame}[fragile]
+  \frametitle{Retour au contrôle d'accès}
+\begin{minted}{prolog}
+sous_sujet(alice, groupe1).
+sous_sujet(groupe1, groupe2).
+sous_sujet(bob, groupe2).
+
+sous_objet(fichierA, dossier1).
+sous_objet(fichierB, dossier2).
+sous_objet(dossier1, dossier2).
+
+autorise(groupe1, dossier2).
+
+autorise(U, F) :-  sous_objet(F, D), autorise(U, D).
+autorise(U, F) :-  sous_sujet(U, G), autorise(G, F).
+
+autorise(U, F) ?
+\end{minted}
 \end{frame}
 
 

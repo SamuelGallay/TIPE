@@ -1,27 +1,26 @@
 let _ = Format.printf "Bienvenue !\n\n";;
 
-let () = Tests.zebra ();;
+(* let () = Tests.zebra ();; *)
 
 let world =
   Solver.read_program
 "
-possede(alice, fichierA).
-possede(bob, fichierB).
+sous_sujet(alice, groupe1).
+sous_sujet(groupe1, groupe2).
+sous_sujet(bob, groupe2).
 
-group(users, [alice, bob]).
-group(admins, [charlie, eve]).
+sous_objet(fichierA, dossier1).
+sous_objet(fichierB, dossier2).
+sous_objet(dossier1, dossier2).
 
-autorise(alice, bob).
+autorise(groupe1, dossier2).
 
-peutacceder(B, F) :- possede(B, F).
-peutacceder(B, F) :- possede(A, F), autorise(A, B).
-
+autorise(U, F) :-  sous_objet(F, D), autorise(U, D).
+autorise(U, F) :-  sous_sujet(U, G), autorise(G, F).
 "
 in
 let req = Solver.request world "standard" in
-req "peutacceder(bob, fichierB)";
-req "peutacceder(bob, fichierA)";
-req "peutacceder(alice, fichierB)";;
+req "autorise(U, F)";;
 
 
-let () = Tests.test6 ();;
+(* let () = Tests.test6 ();; *)
