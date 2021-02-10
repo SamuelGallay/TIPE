@@ -1,7 +1,18 @@
 open Types
 
 let sprintf = Format.sprintf
+
 let printf = Format.printf
+
+let iter = ref 0
+
+let newvar () =
+  iter := !iter + 1;
+  Id ("$" ^ string_of_int !iter, 0)
+
+let rec table_of_termlist tail = function
+  | [] -> tail
+  | t :: tl -> NonEmpty (t, table_of_termlist tail tl)
 
 (* Transforme un terme en une chaîne de caractères *)
 let rec string_of_term = function
@@ -20,9 +31,7 @@ let rec string_of_term = function
 
 (* DEBUG : affiche un liste de couple de termes *)
 let print_eqs eqs =
-  TermSet.iter
-    (fun (t1, t2) -> printf "%s <-> %s\n%!" (string_of_term t1) (string_of_term t2))
-    eqs
+  TermSet.iter (fun (t1, t2) -> printf "%s <-> %s\n%!" (string_of_term t1) (string_of_term t2)) eqs
 
 (* Applique une substitution sur un terme *)
 (* Attention, on ne peut remplacer une variable qui représente un tableau que par un tableau *)

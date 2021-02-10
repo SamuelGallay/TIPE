@@ -1,40 +1,40 @@
-open Types
-open Utilitary
-open Unification
+(* open Types *)
+(* open Utilitary *)
+(* open Unification *)
 open Solver
 
-type 'a ftree = FLeaf of 'a | FNode of 'a ftree list
-
-let rec force_tree (tree : 'a tree) =
-  match tree with
-  | Leaf a -> FLeaf a
-  | Node atl -> FNode (List.map (fun t -> force_tree (Lazy.force t)) atl)
-
-(* La fonction test_unification a pour but de tester mgu *)
-let test_unification str_r str_c =
-  Format.printf "Unification de %s et de %s :\n%!" str_r str_c;
-  match mgu (str_r |> read_term) (str_c |> read_term) with
-  | Some t ->
-      VarMap.iter (fun (Id (s, _)) term -> Format.printf "%s <- %s\n%!" s (string_of_term term)) t
-  | None -> Format.printf "No unification\n%!"
-
-let test1 () =
-  test_unification "etudiant_de(E, pierre)" "etudiant_de(F,P)";
-  (* F/E et P/pierre *)
-  test_unification "etudiant_de(F,P)" "etudiant_de(E, pierre)";
-  (* E/F et P/pierre *)
-  test_unification "f(X,g(Y))" "f(g(Z),Z)";
-  (* X/g(g(Y)) et Z/g(Y) *)
-  test_unification "f(g(Z),Z)" "f(X,g(Y))";
-  (* X/g(g(Y)) et Z/g(Y) *)
-  test_unification "[a, a, b, c]" "[A | B]";
-  test_unification "[a, a, b, c]" "[A | A]";
-  test_unification "[[a, b, c], a, b, c]" "[A | A]"
+(* type 'a ftree = FLeaf of 'a | FNode of 'a ftree list
+ *
+ * let rec force_tree (tree : 'a tree) =
+ *   match tree with
+ *   | Leaf a -> FLeaf a
+ *   | Node atl -> FNode (List.map (fun t -> force_tree (Lazy.force t)) atl)
+ *
+ * (\* La fonction test_unification a pour but de tester mgu *\)
+ * let test_unification str_r str_c =
+ *   Format.printf "Unification de %s et de %s :\n%!" str_r str_c;
+ *   match mgu (str_r |> read_term) (str_c |> read_term) with
+ *   | Some t ->
+ *       VarMap.iter (fun (Id (s, _)) term -> Format.printf "%s <- %s\n%!" s (string_of_term term)) t
+ *   | None -> Format.printf "No unification\n%!"
+ *
+ * let test1 () =
+ *   test_unification "etudiant_de(E, pierre)" "etudiant_de(F,P)";
+ *   (\* F/E et P/pierre *\)
+ *   test_unification "etudiant_de(F,P)" "etudiant_de(E, pierre)";
+ *   (\* E/F et P/pierre *\)
+ *   test_unification "f(X,g(Y))" "f(g(Z),Z)";
+ *   (\* X/g(g(Y)) et Z/g(Y) *\)
+ *   test_unification "f(g(Z),Z)" "f(X,g(Y))";
+ *   (\* X/g(g(Y)) et Z/g(Y) *\)
+ *   test_unification "[a, a, b, c]" "[A | B]";
+ *   test_unification "[a, a, b, c]" "[A | A]";
+ *   test_unification "[[a, b, c], a, b, c]" "[A | A]" *)
 
 let test3 () =
   let world =
     read_program
-    "
+      "
 apprend(eve, mathematiques).
 apprend(benjamin, informatique).
 apprend(benjamin, physique).
@@ -46,19 +46,19 @@ etudiant_de(E,P):-apprend(E,M), enseigne(P,M).
 "
   in
   let req = request world "standard" in
-  req "etudiant_de(E, pierre)";
-  req "etudiant_de(E, pierre), etudiant_de(E, alice)";
-  req "etudiant_de(A, B)";
-  req "etudiant_de(A, A)";
-  req "apprend(A, A)";
-  req "enseigne(A, A)";
-  req "enseigne(alice, physique)";
-  req "enseigne(alice, mathematiques)"
+  req "etudiant_de(E, pierre)?";
+  req "etudiant_de(E, pierre), etudiant_de(E, alice)?";
+  req "etudiant_de(A, B)?";
+  req "etudiant_de(A, A)?";
+  req "apprend(A, A)?";
+  req "enseigne(A, A)?";
+  req "enseigne(alice, physique)?";
+  req "enseigne(alice, mathematiques)?"
 
 let test4 () =
   let world =
     read_program
-    "
+      "
 connected(bond_street,oxford_circus,central).
 connected(oxford_circus,tottenham_court_road,central).
 connected(bond_street,green_park,jubilee).
@@ -81,14 +81,12 @@ path(X,Y,noroute):-connected(X,Y,L).
 path(X,Y,route(Z,R)):-connected(X,Z,L),path(Z,Y,R)."
   in
   let req = request world "standard" in
-  req "connected(piccadilly_circus,leicester_square,piccadilly)";
-  req "nearby(oxford_circus, charing_cross)";
-  req "nearby(tottenham_court_road,W)";
-  req "reachable(bond_street, leicester_square)";
-  req "connected(oxford_circus, bond_street, L)";
-  req "path(oxford_circus, charing_cross, R)"
-
-;;
+  req "connected(piccadilly_circus,leicester_square,piccadilly)?";
+  req "nearby(oxford_circus, charing_cross)?";
+  req "nearby(tottenham_court_road,W)?";
+  req "reachable(bond_street, leicester_square)?";
+  req "connected(oxford_circus, bond_street, L)?";
+  req "path(oxford_circus, charing_cross, R)?"
 
 let test5 () =
   let world =
@@ -116,15 +114,14 @@ equal(X, X).
   in
   let req = request world "standard" in
 
-  req "member(a, [c,d,a,b])";
-  req "prefix(P, [c,d,a,b])";
-  req "sublist(S, [a,b,c,d])";
-  req "append([a,b,c], [d,e,f], X)";
-  req "reverse([a,b,c,d,e,f], R)";
-  req "adjacent(X, Y, [a,b,c,d])";
-  req "equal([a, b], X)"
+  req "member(a, [c,d,a,b])?";
+  req "prefix(P, [c,d,a,b])?";
+  req "sublist(S, [a,b,c,d])?";
+  req "append([a,b,c], [d,e,f], X)?";
+  req "reverse([a,b,c,d,e,f], R)?";
+  req "adjacent(X, Y, [a,b,c,d])?";
+  req "equal([a, b], X)?"
 
-;;
 let test6 () =
   let world =
     read_program
@@ -143,16 +140,14 @@ invalid(not(X)) :- satisfiable(X).
 "
   in
   let req = request world "standard" in
-  req "and(true, true)"
-
-
+  req "and(true, true)?"
 
 (* nationality pet cigarette drink house-color *)
 let zebra () =
   let req =
-  request
-    (read_program
-"
+    request
+      (read_program
+         "
 member(X, [X | Xs]).
 member(X, [Y | Ys]) :- member(X, Ys).
 
@@ -181,6 +176,6 @@ nextto([_, _, kools, _, _], [_, horse, _, _, _], H),
 member([W, _, _, water, _], H),
 member([Z, zebra, _, _, _], H).
 ")
-    "standard"
-in
-req "zebra(Houses, WaterDrinker, ZebraOwner)"
+      "standard"
+  in
+  req "zebra(Houses, WaterDrinker, ZebraOwner)?"

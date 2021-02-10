@@ -24,7 +24,7 @@ let solve e =
         else (
           eqs.data <- TermSet.remove (Var w, t) eqs.data;
           eqs.data <- replace_var_in_eqs w t eqs.data;
-          eqs.data <- TermSet.add (Var w, t) eqs.data )
+          eqs.data <- TermSet.add (Var w, t) eqs.data)
     | Var _, _ -> ()
     | Predicate (_, _), Table _ -> eqs.correct <- false
     | Table _, Predicate (_, _) -> eqs.correct <- false
@@ -45,7 +45,7 @@ let solve e =
         | TVar w, table when var_in_eqs w (TermSet.remove (Table (TVar w), Table table) eqs.data) ->
             if var_in_term w (Table table) then eqs.correct <- false
             else eqs.data <- replace_var_in_eqs w (Table table) eqs.data
-        | TVar _, _ -> () )
+        | TVar _, _ -> ())
   in
   let old = ref TermSet.empty in
   while eqs.data <> !old && eqs.correct do

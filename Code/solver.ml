@@ -1,5 +1,4 @@
 open Types
-open Parser
 open Utilitary
 open Unification
 
@@ -16,13 +15,11 @@ let type_check_cl cl =
       Clause (aux left, List.map aux right))
     cl l
 
-let read_term str = type_check_term (parse_term str)
+let read_program str =
+  List.map type_check_cl (str |> Lexing.from_string |> Parser.programme Lexer.mylexer)
 
-let read_program str = List.map type_check_cl (parse_program str)
-
-let read_clause str = type_check_cl (parse_clause str)
-
-let read_termlist str = List.map type_check_term (parse_termlist str)
+let read_request str =
+  str |> Lexing.from_string |> Parser.requete Lexer.mylexer |> List.map type_check_term
 
 (* Applique une substitution *)
 let apply_subst_on_term = VarMap.fold replace_var_in_term
@@ -45,8 +42,6 @@ let rename n (Clause (t1, tl)) =
   in
   Clause (f t1, List.map f tl)
 
-type 'a tree = Leaf of 'a | Node of 'a tree Lazy.t list
-
 let list_to_seq l = List.fold_right (fun x s () -> Seq.Cons (x, s)) l Seq.empty
 
 let rec to_seq = function
@@ -66,17 +61,17 @@ let rec sld_tree world req subs n =
              | None -> None
              | Some unifier ->
                  Some
-                   ( lazy
+                   (lazy
                      (sld_tree world
                         (apply_subst_on_termlist unifier (right_member @ other_request_terms))
-                        (unifier :: subs) (n + 1)) ))
+                        (unifier :: subs) (n + 1))))
            world)
 
 let solutions tree vars =
   Seq.map (fun l -> (vars, List.fold_right apply_subst_on_termlist l vars)) (to_seq tree)
 
 let request world sol_method req =
-  let termlist = read_termlist req in
+  let termlist = read_request req in
   let vars = find_vars_in_termlist termlist in
   let sol =
     match sol_method with
@@ -94,4 +89,3 @@ let request world sol_method req =
                (List.map2 (fun v t -> string_of_term v ^ " = " ^ string_of_term t) vars tl)))
       sol;
   Format.printf "\n%!"
-

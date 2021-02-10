@@ -6,6 +6,8 @@ and term = Var of var | Predicate of string * term list | Table of table
 
 type clause = Clause of term * term list
 
+type 'a tree = Leaf of 'a | Node of 'a tree Lazy.t list
+
 module TermSet = Set.Make (struct
   type t = term * term
 

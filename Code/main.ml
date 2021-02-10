@@ -1,10 +1,11 @@
-let _ = Format.printf "Bienvenue !\n\n";;
+let () =
+  Format.printf "Bienvenue !\n\n";
 
-(* let () = Tests.zebra ();; *)
+  Tests.zebra ();
 
-let world =
-  Solver.read_program
-"
+  let world =
+    Solver.read_program
+      "
 sous_sujet(alice, groupe1).
 sous_sujet(groupe1, groupe2).
 sous_sujet(bob, groupe2).
@@ -18,9 +19,8 @@ autorise(groupe1, dossier2).
 autorise(U, F) :-  sous_objet(F, D), autorise(U, D).
 autorise(U, F) :-  sous_sujet(U, G), autorise(G, F).
 "
-in
-let req = Solver.request world "standard" in
-req "autorise(U, F)";;
+  in
 
+  let req = Solver.request world "standard" in
 
-(* let () = Tests.test6 ();; *)
+  req "autorise(U, F) ?"
