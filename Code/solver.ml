@@ -2,7 +2,6 @@ open Types
 open Parser
 open Utilitary
 open Unification
-open Normalize
 
 let type_check_term term =
   List.fold_left
@@ -46,54 +45,6 @@ let rename n (Clause (t1, tl)) =
   in
   Clause (f t1, List.map f tl)
 
-(* Renvoie un set de (Var Model -> Var Request) *)
-let equivalent r m =
-  let rec equal map_opt request model =
-    match map_opt with
-    | None -> None
-    | Some map -> (
-        match (request, model) with
-        | Var vr, Var vm -> (
-            match VarMap.find_opt vm map with
-            | None -> Some (VarMap.add vm vr map)
-            | Some vs -> if vs = vr then Some map else None )
-        | Predicate (pr, lr), Predicate (pm, lm) ->
-            if pr <> pm || List.length lr <> List.length lm then None
-            else List.fold_left2 equal (Some map) lr lm
-        | Table tr, Table tm ->
-            let rec aux map_opt tbl_r tbl_m =
-              match map_opt with
-              | None -> None
-              | Some map -> (
-                  match (tbl_r, tbl_m) with
-                  | Empty, Empty -> Some map
-                  | TVar vr, TVar vm -> (
-                      match VarMap.find_opt vm map with
-                      | None -> Some (VarMap.add vm vr map)
-                      | Some vs -> if vs = vr then Some map else None )
-                  | NonEmpty (head_r, tail_r), NonEmpty (head_m, tail_m) ->
-                      aux (equal (Some map) head_r head_m) tail_r tail_m
-                  | _, _ -> None )
-            in
-            aux (Some map) tr tm
-        | _, _ -> None )
-  in
-  equal (Some VarMap.empty) r m
-
-(* requête tête ->  (var tête -> var requête) *)
-let bijection r m =
-  match equivalent m r with
-  | None -> None
-  | Some map ->
-      VarMap.fold
-        (fun key v b ->
-          match b with
-          | None -> None
-          | Some nmap -> if VarMap.mem v nmap then None else Some (VarMap.add v key nmap))
-        map (Some VarMap.empty)
-
-let exist_in term gen = List.exists (fun t -> Option.is_some (bijection term t)) gen
-
 type 'a tree = Leaf of 'a | Node of 'a tree Lazy.t list
 
 let list_to_seq l = List.fold_right (fun x s () -> Seq.Cons (x, s)) l Seq.empty
@@ -121,81 +72,6 @@ let rec sld_tree world req subs n =
                         (unifier :: subs) (n + 1)) ))
            world)
 
-let rec sld_tree_gen world req subs n =
-  match req with
-  | [] -> Leaf subs
-  | (head_request_term, hr_gen) :: other_request_terms ->
-      if exist_in head_request_term hr_gen then Node []
-      else
-        Node
-          (List.filter_map
-             (fun c ->
-               let (Clause (left_member, right_member)) = rename n c in
-               match mgu head_request_term left_member with
-               | None -> None
-               | Some unifier ->
-                   Some
-                     ( lazy
-                       (sld_tree_gen world
-                          ( List.map
-                              (fun t ->
-                                (apply_subst_on_term unifier t, head_request_term :: hr_gen))
-                              right_member
-                          @ List.map
-                              (fun (t, gen) -> (apply_subst_on_term unifier t, gen))
-                              other_request_terms )
-                          (unifier :: subs) (n + 1)) ))
-             world)
-
-(*Debug !*)
-let iter = ref 0
-
-let print_req req =
-  iter := !iter + 1;
-  if !iter >= 1000 then (
-    iter := 0;
-    failwith "Max Debug Stack" )
-  else Format.printf "%s\n%!" (String.concat "," (List.map (fun (t, _) -> string_of_term t) req))
-
-let debug_flag = ref false
-
-let rec sld_tree_neg_gen world (req : (term * term list) list) subs n =
-  if !debug_flag then print_req req else ();
-  match req with
-  | [] -> Leaf subs
-  | (head_request_term, hr_gen) :: other_request_terms -> (
-      if exist_in head_request_term hr_gen then Node []
-      else
-        match head_request_term with
-        | Predicate ("naf", tl) ->
-            if naf world (List.map (fun t -> (t, [])) tl) then
-              sld_tree_neg_gen world other_request_terms subs n
-            else Node []
-        | _ ->
-            Node
-              (List.filter_map
-                 (fun c ->
-                   let (Clause (left_member, right_member)) = rename n c in
-                   match mgu head_request_term left_member with
-                   | None -> None
-                   | Some unifier ->
-                       Some
-                         ( lazy
-                           (sld_tree_neg_gen world
-                              ( List.map
-                                  (fun t ->
-                                    (apply_subst_on_term unifier t, head_request_term :: hr_gen))
-                                  right_member
-                              @ List.map
-                                  (fun (t, gen) -> (apply_subst_on_term unifier t, gen))
-                                  other_request_terms )
-                              (unifier :: subs) (n + 1)) ))
-                 world) )
-
-and naf world (req : (term * term list) list) =
-  let sols = to_seq (sld_tree_neg_gen world req [] 1) in
-  if sols () = Seq.Nil then true else false
-
 let solutions tree vars =
   Seq.map (fun l -> (vars, List.fold_right apply_subst_on_termlist l vars)) (to_seq tree)
 
@@ -205,13 +81,6 @@ let request world sol_method req =
   let sol =
     match sol_method with
     | "standard" -> solutions (sld_tree world termlist [] 1) vars
-    | "loops" -> solutions (sld_tree_gen world (termlist |> List.map (fun t -> (t, []))) [] 1) vars
-    | "neg" ->
-        debug_flag := false;
-        solutions (sld_tree_neg_gen world (termlist |> List.map (fun t -> (t, []))) [] 1) vars
-    | "debug" ->
-        debug_flag := true;
-        solutions (sld_tree_neg_gen world (termlist |> List.map (fun t -> (t, []))) [] 1) vars
     | _ -> failwith "Unknown solution method"
   in
   if sol () = Seq.Nil then Format.printf "This is false.\n%!"
@@ -226,4 +95,3 @@ let request world sol_method req =
       sol;
   Format.printf "\n%!"
 
-let _ = NormalTermSet.empty

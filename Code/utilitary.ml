@@ -1,24 +1,27 @@
 open Types
 
+let sprintf = Format.sprintf
+let printf = Format.printf
+
 (* Transforme un terme en une chaîne de caractères *)
 let rec string_of_term = function
   | Predicate (p, []) -> p
-  | Predicate (p, l) -> p ^ "(" ^ String.concat ", " (List.map string_of_term l) ^ ")"
-  | Var (Id (s, n)) -> s ^ "-" ^ string_of_int n
+  | Predicate (p, l) -> sprintf "%s(%s)" p (String.concat ", " (List.map string_of_term l))
+  | Var (Id (s, n)) -> sprintf "%s-%i" s n
   | Table Empty -> "[]"
-  | Table (TVar (Id (s, n))) -> s ^ "-" ^ string_of_int n
+  | Table (TVar (Id (s, n))) -> sprintf "%s-%i" s n
   | Table (NonEmpty (t, l)) ->
       let rec aux = function
         | Empty -> ""
-        | TVar (Id (s, n)) -> "|" ^ s ^ "-" ^ string_of_int n
-        | NonEmpty (t, l) -> ", " ^ string_of_term t ^ aux l
+        | TVar (Id (s, n)) -> sprintf "|%s-%i" s n
+        | NonEmpty (t, l) -> sprintf ", %s%s" (string_of_term t) (aux l)
       in
-      "[" ^ string_of_term t ^ aux l ^ "]"
+      sprintf "[%s%s]" (string_of_term t) (aux l)
 
 (* DEBUG : affiche un liste de couple de termes *)
 let print_eqs eqs =
   TermSet.iter
-    (fun (t1, t2) -> Format.printf "%s <-> %s\n%!" (string_of_term t1) (string_of_term t2))
+    (fun (t1, t2) -> printf "%s <-> %s\n%!" (string_of_term t1) (string_of_term t2))
     eqs
 
 (* Applique une substitution sur un terme *)

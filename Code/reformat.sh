@@ -10,8 +10,7 @@ ListOfFiles=("parser.ml"
              "unification.ml"
              "utilitary.ml"
              "tests.ml"
-             "main.ml"
-             "normalize.ml")
+             "main.ml")
 
  
 echo "Reformating files :"
