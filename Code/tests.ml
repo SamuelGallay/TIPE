@@ -45,14 +45,14 @@ enseigne(pierre, informatique).
 etudiant_de(E,P):-apprend(E,M), enseigne(P,M).
 "
   in
-  let req = request world "standard" in
-  req "etudiant_de(E, pierre)?";
-  req "etudiant_de(E, pierre), etudiant_de(E, alice)?";
-  req "etudiant_de(A, B)?";
-  req "etudiant_de(A, A)?";
-  req "apprend(A, A)?";
-  req "enseigne(A, A)?";
-  req "enseigne(alice, physique)?";
+  let req = request world in
+  req "etudiant_de(E, pierre)?" ;
+  req "etudiant_de(E, pierre), etudiant_de(E, alice)?" ;
+  req "etudiant_de(A, B)?" ;
+  req "etudiant_de(A, A)?" ;
+  req "apprend(A, A)?" ;
+  req "enseigne(A, A)?" ;
+  req "enseigne(alice, physique)?" ;
   req "enseigne(alice, mathematiques)?"
 
 let test4 () =
@@ -80,12 +80,12 @@ reachable(X,Y):-connected(X,Z,L),reachable(Z,Y).
 path(X,Y,noroute):-connected(X,Y,L).
 path(X,Y,route(Z,R)):-connected(X,Z,L),path(Z,Y,R)."
   in
-  let req = request world "standard" in
-  req "connected(piccadilly_circus,leicester_square,piccadilly)?";
-  req "nearby(oxford_circus, charing_cross)?";
-  req "nearby(tottenham_court_road,W)?";
-  req "reachable(bond_street, leicester_square)?";
-  req "connected(oxford_circus, bond_street, L)?";
+  let req = request world in
+  req "connected(piccadilly_circus,leicester_square,piccadilly)?" ;
+  req "nearby(oxford_circus, charing_cross)?" ;
+  req "nearby(tottenham_court_road,W)?" ;
+  req "reachable(bond_street, leicester_square)?" ;
+  req "connected(oxford_circus, bond_street, L)?" ;
   req "path(oxford_circus, charing_cross, R)?"
 
 let test5 () =
@@ -112,14 +112,13 @@ adjacent(X,Y,Zs) :- append(As, [X,Y|Ys] ,Zs).
 equal(X, X).
 "
   in
-  let req = request world "standard" in
-
-  req "member(a, [c,d,a,b])?";
-  req "prefix(P, [c,d,a,b])?";
-  req "sublist(S, [a,b,c,d])?";
-  req "append([a,b,c], [d,e,f], X)?";
-  req "reverse([a,b,c,d,e,f], R)?";
-  req "adjacent(X, Y, [a,b,c,d])?";
+  let req = request world in
+  req "member(a, [c,d,a,b])?" ;
+  req "prefix(P, [c,d,a,b])?" ;
+  req "sublist(S, [a,b,c,d])?" ;
+  req "append([a,b,c], [d,e,f], X)?" ;
+  req "reverse([a,b,c,d,e,f], R)?" ;
+  req "adjacent(X, Y, [a,b,c,d])?" ;
   req "equal([a, b], X)?"
 
 let test6 () =
@@ -139,7 +138,7 @@ invalid(and(X, Y)) :- invalid(Y).
 invalid(not(X)) :- satisfiable(X).
 "
   in
-  let req = request world "standard" in
+  let req = request world in
   req "and(true, true)?"
 
 (* nationality pet cigarette drink house-color *)
@@ -175,7 +174,6 @@ nextto([_, _, chesterfields, _, _], [_, fox, _, _, _], H),
 nextto([_, _, kools, _, _], [_, horse, _, _, _], H),
 member([W, _, _, water, _], H),
 member([Z, zebra, _, _, _], H).
-")
-      "standard"
+" )
   in
   req "zebra(Houses, WaterDrinker, ZebraOwner)?"

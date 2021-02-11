@@ -1,0 +1,3 @@
+profile=compact
+break-string-literals=never
+margin=100

@@ -1,13 +1,11 @@
 open Types
 
 let sprintf = Format.sprintf
-
 let printf = Format.printf
-
 let iter = ref 0
 
 let newvar () =
-  iter := !iter + 1;
+  iter := !iter + 1 ;
   Id ("$" ^ string_of_int !iter, 0)
 
 let rec table_of_termlist tail = function
@@ -25,8 +23,7 @@ let rec string_of_term = function
       let rec aux = function
         | Empty -> ""
         | TVar (Id (s, n)) -> sprintf "|%s-%i" s n
-        | NonEmpty (t, l) -> sprintf ", %s%s" (string_of_term t) (aux l)
-      in
+        | NonEmpty (t, l) -> sprintf ", %s%s" (string_of_term t) (aux l) in
       sprintf "[%s%s]" (string_of_term t) (aux l)
 
 (* DEBUG : affiche un liste de couple de termes *)
@@ -48,8 +45,7 @@ let rec replace_var_in_term var new_term term =
               | Table nt -> nt
               | _ -> failwith "Try to replace a table by a term that is not a table"
             else TVar v
-        | NonEmpty (head, tail) -> NonEmpty (replace_var_in_term var new_term head, aux tail)
-      in
+        | NonEmpty (head, tail) -> NonEmpty (replace_var_in_term var new_term head, aux tail) in
       Table (aux tbl)
 
 let replace_var_in_eqs var new_term eqs =
@@ -64,8 +60,7 @@ let rec var_in_term var = function
       let rec aux = function
         | Empty -> false
         | NonEmpty (head, tail) -> var_in_term var head || aux tail
-        | TVar v -> if v = var then true else false
-      in
+        | TVar v -> if v = var then true else false in
       aux t
 
 let var_in_eqs var eqs =
@@ -74,16 +69,14 @@ let var_in_eqs var eqs =
 (* Recherche les termes qui sont des variables récursivement dans une liste de termes *)
 let rec find_vars_in_termlist tl =
   let rec find_vars_in_term = function
-    | Var v -> [ Var v ]
+    | Var v -> [Var v]
     | Predicate (_, l) -> find_vars_in_termlist l
     | Table t ->
         let rec aux = function
           | Empty -> []
-          | TVar v -> [ Table (TVar v) ]
-          | NonEmpty (head, tail) -> find_vars_in_term head @ aux tail
-        in
-        aux t
-  in
+          | TVar v -> [Table (TVar v)]
+          | NonEmpty (head, tail) -> find_vars_in_term head @ aux tail in
+        aux t in
   List.sort_uniq compare (List.concat (List.map find_vars_in_term tl))
 
 (* Renvoie la liste des variables représentant un tableau à l'intérieur d'un terme *)
@@ -94,8 +87,7 @@ let rec find_tvars_in_term = function
       let rec aux = function
         | Empty -> []
         | NonEmpty (head, tail) -> find_tvars_in_term head @ aux tail
-        | TVar v -> [ v ]
-      in
+        | TVar v -> [v] in
       aux t
 
 (* Renvoie la liste des variables représentant un tableau à l'intérieur d'une liste de termes *)

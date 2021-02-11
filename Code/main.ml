@@ -1,8 +1,6 @@
 let () =
-  Format.printf "Bienvenue !\n\n";
-
-  Tests.zebra ();
-
+  Format.printf "Bienvenue !\n\n" ;
+  Tests.zebra () ;
   let world =
     Solver.read_program
       "
@@ -20,7 +18,5 @@ autorise(U, F) :-  sous_objet(F, D), autorise(U, D).
 autorise(U, F) :-  sous_sujet(U, G), autorise(G, F).
 "
   in
-
-  let req = Solver.request world "standard" in
-
+  let req = Solver.request world in
   req "autorise(U, F) ?"

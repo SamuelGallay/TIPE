@@ -2,6 +2,7 @@ open Types
 open Utilitary
 open Unification
 
+(* Recherche les variables ne pouvant désigner qu'un tableau, (comme C dans cet exemple : [A, B | C]), et remplace leurs autres occurences *)
 let type_check_term term =
   List.fold_left
     (fun t v -> replace_var_in_term v (Table (TVar v)) t)
@@ -12,11 +13,12 @@ let type_check_cl cl =
   List.fold_left
     (fun cl v ->
       let aux = replace_var_in_term v (Table (TVar v)) and (Clause (left, right)) = cl in
-      Clause (aux left, List.map aux right))
+      Clause (aux left, List.map aux right) )
     cl l
 
+(* Lit un programme et s'occupe des variables tableau *)
 let read_program str =
-  List.map type_check_cl (str |> Lexing.from_string |> Parser.programme Lexer.mylexer)
+  str |> Lexing.from_string |> Parser.programme Lexer.mylexer |> List.map type_check_cl
 
 let read_request str =
   str |> Lexing.from_string |> Parser.requete Lexer.mylexer |> List.map type_check_term
@@ -36,14 +38,13 @@ let rename n (Clause (t1, tl)) =
         let rec aux = function
           | Empty -> Empty
           | TVar (Id (str, _)) -> TVar (Id (str, n))
-          | NonEmpty (head, tail) -> NonEmpty (f head, aux tail)
-        in
-        Table (aux t)
-  in
+          | NonEmpty (head, tail) -> NonEmpty (f head, aux tail) in
+        Table (aux t) in
   Clause (f t1, List.map f tl)
 
 let list_to_seq l = List.fold_right (fun x s () -> Seq.Cons (x, s)) l Seq.empty
 
+(* Transforme un arbre (possiblement infini) en la séquence de ses feuilles. Parcours en profondeur. *)
 let rec to_seq = function
   | Leaf str -> Seq.return str
   | Node tl -> Seq.flat_map (fun par -> to_seq (Lazy.force par)) (list_to_seq tl)
@@ -61,23 +62,19 @@ let rec sld_tree world req subs n =
              | None -> None
              | Some unifier ->
                  Some
-                   (lazy
+                   ( lazy
                      (sld_tree world
                         (apply_subst_on_termlist unifier (right_member @ other_request_terms))
-                        (unifier :: subs) (n + 1))))
-           world)
+                        (unifier :: subs) (n + 1) ) ) )
+           world )
 
 let solutions tree vars =
   Seq.map (fun l -> (vars, List.fold_right apply_subst_on_termlist l vars)) (to_seq tree)
 
-let request world sol_method req =
+let request world req =
   let termlist = read_request req in
   let vars = find_vars_in_termlist termlist in
-  let sol =
-    match sol_method with
-    | "standard" -> solutions (sld_tree world termlist [] 1) vars
-    | _ -> failwith "Unknown solution method"
-  in
+  let sol = solutions (sld_tree world termlist [] 1) vars in
   if sol () = Seq.Nil then Format.printf "This is false.\n%!"
   else
     Seq.iter
@@ -86,6 +83,6 @@ let request world sol_method req =
         else
           Format.printf "There is : %s\n%!"
             (String.concat ", "
-               (List.map2 (fun v t -> string_of_term v ^ " = " ^ string_of_term t) vars tl)))
-      sol;
+               (List.map2 (fun v t -> string_of_term v ^ " = " ^ string_of_term t) vars tl) ) )
+      sol ;
   Format.printf "\n%!"
