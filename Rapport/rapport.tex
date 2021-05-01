@@ -141,7 +141,7 @@ J'ai mis un moment (plus ou moins les deux derniers mois) à me décider sur cet
 
 \section{L'analyse syntaxique}
 
-Si j'ai bien appris une chose en écrivant un premier parser moi même sans reprendre de grandes idées existantes, c'est qu'il mieux vaut bien réfléchir avant si on veux être capable de modifier, ou même de relire son code après. Maintenant j'ai compris que le parsing est un art en soi, et j'ai décidé d'écrire un analyseur récursif descendant utilisant des combinateurs. J'ai appris les idées dans \cite{Ljunglof}.
+Si j'ai bien appris une chose en écrivant un premier parser moi même sans reprendre de grandes idées existantes, c'est qu'il mieux vaut bien réfléchir avant si on veux être capable de modifier, ou même de relire son code après. Maintenant j'ai compris que le parsing est un art en soi, et j'ai décidé d'écrire un analyseur récursif descendant utilisant des combinateurs. J'ai appris les idées dans \cite{Ljunglof} et \cite{KrishnaswamiYallop}.
 
 Je vois ici un parser comme une fonction qui à une chaîne de caractères à analyser renvoie un couple composé de la chaîne restante à analyser et une structure, un arbre produit par l'analyseur qui représente les caractères analysés. L'idée des combinateurs est de créer de nouveaux parsers plus complexes à partir de ceux existants. Voici la structure que produit le parser :
 
@@ -424,13 +424,7 @@ possede_une_des(pierre, [garage, cuisine, salon]).
 \appendix
 
 \section{Code}
-\codefile{types.ml}
-\codefile{lexer.mll}
-\codefile{parser.mly}
-\codefile{solver.ml}
-\codefile{utilitary.ml}
-\codefile{unification.ml}
-\codefile{main.ml}
-% \codefile{tests.ml}
+\codefile{prolog.ml}
+
 
 \end{document}
