@@ -1,9 +1,3 @@
 (executable
  (name main)
- (modules main parser lexer solver tests types unification utilitary))
-
-(menhir
- (modules parser))
-
-(ocamllex
- (modules lexer))
+ (modules main prolog tests))

@@ -2,7 +2,6 @@
 *~
 *.cmi
 *.cmo
-prolog.ml
 Brouillon.ipynb
 Code/_build
 Code/dune-project

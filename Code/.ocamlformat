@@ -1,3 +1,2 @@
-profile=compact
 break-string-literals=never
-margin=100
+margin=80
