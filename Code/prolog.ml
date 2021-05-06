@@ -23,12 +23,25 @@ type subst =
 
 type substitution = subst list
 
+type token =
+  | PredicateString of string
+  | VariableString of string
+  | LeftParenthesis
+  | RightParenthesis
+  | LeftBracket
+  | RightBracket
+  | Vertical
+  | Comma
+  | Period
+  | If
+  | EndOfFile
+
 (* ************************************
             Pretty Printing Functions
    ************************************ *)
 
 let rec string_of_term : term -> string = function
-  | `GeneralVar (Id (s, _)) -> s
+  | `GeneralVar (Id (s, _)) -> if s.[0] = '_' then "_" else s
   | `TableVar (Id (s, _)) -> s
   | (`EmptyTable | `Table _) as t -> "[" ^ string_of_tblcontent t ^ "]"
   | `Predicate (s, []) -> s
@@ -44,129 +57,156 @@ and string_of_tblcontent : [ `EmptyTable | `Table of term * table ] -> string = 
 
 let string_of_clause (Clause (t, tl)) =
   string_of_term t
-  ^ (if tl = [] then "" else " :- ")
-  ^ (tl |> List.map string_of_term |> String.concat ", ")
+  ^ (if tl = [] then ""
+    else " :-" ^ (tl |> List.map (fun t -> "\n  " ^ string_of_term t) |> String.concat ","))
   ^ "."
 
-let _string_of_program cl = cl |> List.map string_of_clause |> String.concat "\n"
+let string_of_program cl = cl |> List.map string_of_clause |> String.concat "\n\n"
+
+let string_of_token = function
+  | PredicateString s -> s
+  | VariableString s -> s
+  | LeftParenthesis -> "("
+  | RightParenthesis -> ")"
+  | LeftBracket -> "["
+  | RightBracket -> "]"
+  | Vertical -> "|"
+  | Comma -> ","
+  | Period -> "."
+  | If -> ":-"
+  | EndOfFile -> "EOF"
+
+let string_of_tokenlist tl = tl |> List.map string_of_token |> String.concat "; "
+
+(* ************************************
+            Tokenizer
+   ************************************ *)
+
+exception TokenNotFound of char
+
+let rec parse_word = function
+  | (('a' .. 'z' | 'A' .. 'Z' | '0' .. '9'| '_') as c) :: t ->
+      let w, t' = parse_word t in
+      (c :: w, t')
+  | l -> ([], l)
+
+let string_of_charlist cl = String.of_seq (List.to_seq cl)
+
+let rec tokenlist_of_charlist : token list -> char list -> token list =
+ fun acc -> function
+  | (' ' | '\t' | '\n') :: t -> tokenlist_of_charlist acc t
+  | '[' :: t -> tokenlist_of_charlist (LeftBracket :: acc) t
+  | ']' :: t -> tokenlist_of_charlist (RightBracket :: acc) t
+  | '(' :: t -> tokenlist_of_charlist (LeftParenthesis :: acc) t
+  | ')' :: t -> tokenlist_of_charlist (RightParenthesis :: acc) t
+  | '|' :: t -> tokenlist_of_charlist (Vertical :: acc) t
+  | ',' :: t -> tokenlist_of_charlist (Comma :: acc) t
+  | '.' :: t -> tokenlist_of_charlist (Period :: acc) t
+  | ':' :: '-' :: t -> tokenlist_of_charlist (If :: acc) t
+  | '_' :: t -> tokenlist_of_charlist (VariableString "_" :: acc) t
+  | [] -> List.rev (EndOfFile :: acc)
+  | ('a' .. 'z' as low) :: t ->
+      let w, cl = parse_word t in
+      tokenlist_of_charlist (PredicateString (string_of_charlist (low :: w)) :: acc) cl
+  | ('A' .. 'Z' as up) :: t ->
+      let w, cl = parse_word t in
+      tokenlist_of_charlist (VariableString (string_of_charlist (up :: w)) :: acc) cl
+  | tok :: _ -> raise (TokenNotFound tok)
+
+let charlist_of_string s = List.init (String.length s) (String.get s)
+
+let tokenlist_of_string s =
+  try Ok (s |> charlist_of_string |> tokenlist_of_charlist [])
+  with TokenNotFound tok -> Error ("this token is unknown : '" ^ String.make 1 tok ^ "'")
 
 (* ************************************
             Parsing
    ************************************ *)
 
-type 'a parser = char list -> (char list * 'a) list
+type 'a parser = token list -> ('a * token list, string) result
 
-let rec remove_spaces = function
-  | [] -> []
-  | (' ' | '\t' | '\n') :: l -> remove_spaces l
-  | a :: l -> a :: remove_spaces l
-
-let charlist_of_string s = List.init (String.length s) (String.get s)
-
-let parse_char : char -> string parser =
- fun c -> function [] -> [] | h :: tl -> if h = c then [ (tl, String.make 1 c) ] else []
-
-let ( +~ ) : 'a parser -> 'a parser -> 'a parser = fun p q cl -> p cl @ q cl
+let ( >>= ) = Result.bind
 
 let ( *~ ) : 'a parser -> 'b parser -> ('a * 'b) parser =
  fun p q cl ->
-  p cl |> List.map (fun (l, a) -> q l |> List.map (fun (l', b) -> (l', (a, b)))) |> List.concat
+  p cl >>= fun (a, cl') ->
+  q cl' >>= fun (b, cl'') -> Ok ((a, b), cl'')
 
-let ( *>~ ) : 'a parser -> ('a -> 'b) -> 'b parser =
- fun p f cl -> p cl |> List.map (fun (l, a) -> (l, f a))
+let ( *> ) : 'a parser -> ('a -> 'b) -> 'b parser =
+ fun p f cl -> p cl >>= fun (a, cl') -> Ok (f a, cl')
 
-(* neutre pour +~ *)
-let null_parser _cl = []
+let ignore_left (_, b) = b
 
-(* neutre pour *~ *)
-let epsilon_parser cl = [ (cl, ()) ]
+let ignore_right (a, _) = a
 
-let any pl = List.fold_left ( +~ ) null_parser pl
+let epsilon tl = Ok ((), tl)
 
-let lower_case = "abcdefghijklmnopqrstuvwxyz"
+let parse_token tk = function
+  | t :: l when t = tk -> Ok (t, l)
+  | _ -> Error ("Unable to parse token : " ^ string_of_token tk)
 
-let upper_case = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-
-let other_chars = "0123456789_-"
-
-let all_chars = lower_case ^ upper_case ^ other_chars
-
-let parse_char_of s = charlist_of_string s |> List.map parse_char |> any
-
-let rec parse_word cl =
-  cl |> parse_char_of all_chars +~ parse_char_of all_chars *~ parse_word *>~ fun (a, b) -> a ^ b
-
-let parse_predicate_string =
-  parse_char_of lower_case +~ parse_char_of lower_case *~ parse_word *>~ fun (a, b) -> a ^ b
-
-let parse_variable_string =
-  parse_char_of upper_case +~ parse_char_of upper_case *~ parse_word *>~ fun (a, b) -> a ^ b
-
-let counter_unnamed_ids = ref 0
-
-let new_id () =
-  counter_unnamed_ids := !counter_unnamed_ids + 1;
-  Id ("_" ^ string_of_int !counter_unnamed_ids, 0)
-
-let parse_generalvar =
-  (parse_char '_' *>~ fun _ -> `GeneralVar (new_id ()))
-  +~ parse_variable_string *>~ fun s -> `GeneralVar (Id (s, 0))
+let look_ahead tl f =
+  match tl with [] -> Error "Unexpected end of token stream." | tok :: toklist -> f (tok, toklist)
 
 let rec table_of_termlist : table -> term list -> table =
  fun tail -> function [] -> tail | h :: t -> `Table (h, table_of_termlist tail t)
 
-let parenthesis p = parse_char '(' *~ p *~ parse_char ')' *>~ fun ((_, t), _) -> t
+let rec parse_term tl =
+  look_ahead tl (function
+    | VariableString s, l -> Ok (`GeneralVar (Id (s, 0)), l)
+    | PredicateString s, l ->
+        l |> parse_predicate_without_string *> fun term_list -> `Predicate (s, term_list)
+    | LeftBracket, l -> l |> parse_table_without_left_bracket *> fun tbl -> (tbl :> term)
+    | tok, _ -> Error ("Not a valid term : " ^ string_of_token tok))
 
-let bracket p = parse_char '[' *~ p *~ parse_char ']' *>~ fun ((_, t), _) -> t
+and parse_predicate_without_string tl =
+  look_ahead tl (function
+    | LeftParenthesis, l -> l |> parse_term_list *~ parse_token RightParenthesis *> ignore_right
+    | _, _ -> Ok ([], tl))
 
-let rec parse_term : term parser =
- fun cl -> cl |> parse_generalvar +~ parse_predicate +~ term_parsetable
+and parse_term_list tl =
+  tl |> parse_term *~ parse_term_list_without_first_term *> fun (t, tl') -> t :: tl'
 
-and parse_predicate cl =
-  cl
-  |> ( parse_predicate_string *~ parenthesis parse_termlist *>~ fun (name, tl) ->
-       `Predicate (name, tl) )
-     +~ parse_predicate_string *>~ fun name -> `Predicate (name, [])
+and parse_term_list_without_first_term tl =
+  look_ahead tl (function
+    | Comma, l -> l |> parse_term *~ parse_term_list_without_first_term *> fun (a, b) -> a :: b
+    | _, _ -> Ok ([], tl))
 
-and parse_table : table parser =
- fun cl ->
-  cl
-  |> (bracket epsilon_parser *>~ fun _ -> `EmptyTable)
-     +~ (bracket parse_termlist *>~ fun tl -> table_of_termlist `EmptyTable tl)
-     +~ ( bracket (parse_termlist *~ parse_char '|' *~ parse_table) *>~ fun ((tl, _), tbl) ->
-          table_of_termlist tbl tl )
-     +~ bracket (parse_termlist *~ parse_char '|' *~ parse_variable_string)
-        *>~ fun ((tl, _), var) -> table_of_termlist (`TableVar (Id (var, 0))) tl
+and parse_table_without_left_bracket tl =
+  look_ahead tl (function
+    | RightBracket, l -> Ok (`EmptyTable, l)
+    | _, _ ->
+        tl
+        |> parse_term_list *~ parse_table_without_term_list *> fun (termlist, table) ->
+           table_of_termlist table termlist)
 
-and term_parsetable cl = parse_table cl |> List.map (fun (l, t) -> (l, (t :> term)))
+and parse_table_without_term_list tl =
+  look_ahead tl (function
+    | RightBracket, l -> Ok (`EmptyTable, l)
+    | Vertical, l -> l |> parse_table_queue
+    | tok, _ -> Error ("Invalid right part of the table : " ^ string_of_token tok))
 
-and parse_termlist cl =
-  cl
-  |> (parse_term *>~ fun t -> [ t ])
-     +~ parse_term *~ parse_char ',' *~ parse_termlist *>~ fun ((t, _), tl) -> t :: tl
+and parse_table_queue tl =
+  look_ahead tl (function
+    | LeftBracket, l ->
+        l |> parse_table_without_left_bracket *~ parse_token RightBracket *> ignore_right
+    | VariableString s, l -> l |> parse_token RightBracket *> fun _ -> `TableVar (Id (s, 0))
+    | _ -> Error "Invalid table queue")
 
-let parse_clause =
-  (parse_term *~ parse_char '.' *>~ fun (t, _) -> Clause (t, []))
-  +~ parse_term *~ parse_char ':' *~ parse_char '-' *~ parse_termlist *~ parse_char '.'
-     *>~ fun ((((t, _), _), tl), _) -> Clause (t, tl)
+let parse_right_clause tl =
+  look_ahead tl (function
+    | Period, l -> Ok ([], l)
+    | _, _ ->
+        tl |> parse_token If *~ parse_term_list *> ignore_left *~ parse_token Period *> ignore_right)
 
-let rec parse_program : clause list parser =
- fun cl ->
-  cl
-  |> (parse_clause *>~ fun c -> [ c ]) +~ parse_clause *~ parse_program *>~ fun (c, cl) -> c :: cl
+let parse_clause tl = tl |> parse_term *~ parse_right_clause *> fun (t, rc) -> Clause (t, rc)
 
-let parse_request = parse_termlist *~ parse_char '?' *>~ fun (l, _) -> l
+let rec parse_program tl =
+  look_ahead tl (function
+    | EndOfFile, _ -> Ok ([], [])
+    | _, _ -> tl |> parse_clause *~ parse_program *> fun (a, b) -> a :: b)
 
-let unambiguous_parser_of parser s =
-  let results =
-    s |> charlist_of_string |> remove_spaces |> parser |> List.filter (fun (l, _) -> l = [])
-  in
-  match results with
-  | [] -> failwith "Parsing failed, I don't understand what you're saying !"
-  | [ (_, a) ] -> a
-  | _ :: _ :: _ -> failwith "Parsing failed, my grammar in ambiguous !"
-
-let _term_of_string = unambiguous_parser_of parse_term
+let parse_request tl = tl |> parse_term_list *~ parse_token EndOfFile *> ignore_right
 
 (* ************************************
             Substitution Functions
@@ -289,21 +329,73 @@ let solutions tree vars =
             Interface Functions
    ************************************ *)
 
-let program_of_string s = s |> unambiguous_parser_of parse_program |> type_inference_program
+let program_of_string s =
+  s |> tokenlist_of_string >>= parse_program >>= fun (p, _) -> Ok (type_inference_program p)
 
-let request_of_string s = s |> unambiguous_parser_of parse_request |> type_inference_request
+let request_of_string s =
+  s |> tokenlist_of_string >>= parse_request >>= fun (r, _) -> Ok (type_inference_request r)
 
-let request program request =
-  let termlist = request_of_string request in
-  let vars = List.concat_map variables_in_term termlist |> List.sort_uniq Stdlib.compare in
-  let world = program_of_string program in
-  let sol = solutions (sld_tree world termlist [] 1) (vars :> term list) in
+let string_sequence_of parsed_program parsed_request =
+  let vars = List.concat_map variables_in_term parsed_request |> List.sort_uniq compare in
+  let sol = solutions (sld_tree parsed_program parsed_request [] 1) (vars :> term list) in
   let f (vars_tl, tl) =
-    if vars = [] then Format.printf "This is true.\n%!"
+    if vars = [] then "This is true."
     else
-      List.map2 (fun v t -> string_of_term v ^ " = " ^ string_of_term t) vars_tl tl
-      |> String.concat ", "
-      |> Format.printf "A solution is : %s\n%!"
+      "A solution is : "
+      ^ (List.map2 (fun v t -> string_of_term v ^ " = " ^ string_of_term t) vars_tl tl
+        |> String.concat ", ")
   in
-  if sol () = Seq.Nil then Format.printf "This is false.\n%!" else Seq.iter f sol;
-  Format.printf "\n%!"
+  Seq.map f sol
+
+let basic_interpreter program_string request_string =
+  match program_of_string program_string with
+  | Error s ->
+      print_endline "Unable to parse program :";
+      print_endline s
+  | Ok parsed_program ->
+      (match request_of_string request_string with
+      | Error s ->
+          print_endline "Unable to parse request :";
+          print_endline s
+      | Ok parsed_request -> (
+          let string_seq = string_sequence_of parsed_program parsed_request in
+          match string_seq () with
+          | Seq.Nil -> print_endline "No solution found."
+          | Seq.Cons (sol, seq) ->
+              print_endline sol;
+              Seq.iter print_endline seq));
+      print_newline ()
+
+(* ************************************
+            Benchmark Functions
+   ************************************ *)
+
+let read_lines name =
+  let ic = open_in name in
+  let try_read () = try Some (input_line ic) with End_of_file -> None in
+  let rec loop acc =
+    match try_read () with
+    | Some s -> loop (s :: acc)
+    | None ->
+        close_in ic;
+        List.rev acc
+  in
+  String.concat "\n" (loop [])
+(*
+let () =
+  let name = Sys.argv.(1) in
+  print_endline ("reading file : " ^ name);
+  let prg_string = read_lines name in
+  for _j = 1 to 1 do
+    let i = 10000 in
+    let big_prg_string = List.init i (fun _ -> prg_string) |> String.concat "\n" in
+    let t = Unix.gettimeofday () in
+    match big_prg_string |> program_of_string with
+    | Ok _ ->
+        let t' = Unix.gettimeofday () in
+        Format.sprintf "%ibytes : %gs  ~%g MB/s." (String.length big_prg_string) (t' -. t)
+          (float_of_int (String.length big_prg_string) /. (t' -. t) /. 1e6)
+        |> print_endline
+    | Error e -> print_endline e
+  done
+*)

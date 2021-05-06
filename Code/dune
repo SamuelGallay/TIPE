@@ -1,3 +1,4 @@
 (executable
  (name main)
- (modules main prolog tests))
+ (modules main prolog tests)
+ (libraries unix))

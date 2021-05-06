@@ -1,6 +1,5 @@
 let () =
-  Format.printf "Bienvenue !\n\n";
-  Prolog.request
+  Prolog.basic_interpreter
     "
          sous_sujet(alice, groupe1).
      sous_sujet(groupe1, groupe2).
@@ -14,7 +13,7 @@ let () =
 
      autorise(U, F) :-  sous_objet(F, D), autorise(U, D).
      autorise(U, F) :-  sous_sujet(U, G), autorise(G, F)."
-    "autorise(U, F) ?";
+    "autorise(U, F) ";
   Tests.zebra ();
   Tests.test3 ();
   Tests.test4 ();
