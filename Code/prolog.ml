@@ -85,7 +85,7 @@ let string_of_tokenlist tl = tl |> List.map string_of_token |> String.concat "; 
 exception TokenNotFound of char
 
 let rec parse_word = function
-  | (('a' .. 'z' | 'A' .. 'Z' | '0' .. '9'| '_') as c) :: t ->
+  | (('a' .. 'z' | 'A' .. 'Z' | '0' .. '9' | '_') as c) :: t ->
       let w, t' = parse_word t in
       (c :: w, t')
   | l -> ([], l)
@@ -151,9 +151,15 @@ let look_ahead tl f =
 let rec table_of_termlist : table -> term list -> table =
  fun tail -> function [] -> tail | h :: t -> `Table (h, table_of_termlist tail t)
 
+let new_id =
+  let counter_unnamed_ids = ref 0 in
+  fun () ->
+    counter_unnamed_ids := !counter_unnamed_ids + 1;
+    Id ("_" ^ string_of_int !counter_unnamed_ids, 0)
+
 let rec parse_term tl =
   look_ahead tl (function
-    | VariableString s, l -> Ok (`GeneralVar (Id (s, 0)), l)
+    | VariableString s, l -> Ok (`GeneralVar (if s = "_" then new_id () else Id (s, 0)), l)
     | PredicateString s, l ->
         l |> parse_predicate_without_string *> fun term_list -> `Predicate (s, term_list)
     | LeftBracket, l -> l |> parse_table_without_left_bracket *> fun tbl -> (tbl :> term)
@@ -365,37 +371,3 @@ let basic_interpreter program_string request_string =
               print_endline sol;
               Seq.iter print_endline seq));
       print_newline ()
-
-(* ************************************
-            Benchmark Functions
-   ************************************ *)
-
-let read_lines name =
-  let ic = open_in name in
-  let try_read () = try Some (input_line ic) with End_of_file -> None in
-  let rec loop acc =
-    match try_read () with
-    | Some s -> loop (s :: acc)
-    | None ->
-        close_in ic;
-        List.rev acc
-  in
-  String.concat "\n" (loop [])
-(*
-let () =
-  let name = Sys.argv.(1) in
-  print_endline ("reading file : " ^ name);
-  let prg_string = read_lines name in
-  for _j = 1 to 1 do
-    let i = 10000 in
-    let big_prg_string = List.init i (fun _ -> prg_string) |> String.concat "\n" in
-    let t = Unix.gettimeofday () in
-    match big_prg_string |> program_of_string with
-    | Ok _ ->
-        let t' = Unix.gettimeofday () in
-        Format.sprintf "%ibytes : %gs  ~%g MB/s." (String.length big_prg_string) (t' -. t)
-          (float_of_int (String.length big_prg_string) /. (t' -. t) /. 1e6)
-        |> print_endline
-    | Error e -> print_endline e
-  done
-*)
