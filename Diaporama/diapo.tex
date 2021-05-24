@@ -2,17 +2,25 @@
 
 \usepackage[T1]{fontenc}
 \usepackage[sfdefault, light]{FiraSans}
+\usepackage{fontspec}
+\usepackage[mathrm=sym]{unicode-math}
 \usepackage{xcolor}
 \usepackage{diagbox}
-\usepackage{fancyvrb}
 \usepackage{minted}
 \usepackage{tikz}
-\usetikzlibrary{shapes}
 \usepackage[french]{babel}
 
 \usecolortheme{crane}
+\setminted{fontsize=\footnotesize}
+\setmonofont{FiraCode-Regular}
+\usetikzlibrary{shapes}
 
-\title{Programmation logique et contrôle d'accès}
+\setbeamersize{
+  text margin left = 0.75cm, % normalement c'est 1 cm
+  text margin right = 0.75cm % normalement c'est 1 cm
+}
+
+\title{Programmation logique}
 
 \author{\textsc{Samuel Gallay}}
 
@@ -41,271 +49,16 @@
 
 \frame{\titlepage}
 
-
 \begin{frame}{Plan de l'exposé}
-\tableofcontents
+Sauf mention explicite de votre part, seules les trois premières parties seront présentées :
+  \tableofcontents
 \end{frame}
 
-\section{Contrôle d'accès}
-
-
-\begin{frame}
-\frametitle{Contrôle d'accès : motivation}
-
-\begin{center}
-\begin{tikzpicture}
-  \node[draw, ellipse] (S) at (0,0) {Sujet};
-  \node[draw, ellipse] (O) at (8,2) {Objet};
-  \node[draw, diamond, aspect=2.5] (C) at (6,0) {Contrôleur};
-  \node[draw, rectangle,rounded corners=3] (R) at (2.5, 0) {Requête};
-  \node[draw, rectangle,rounded corners=3] (D) at (6, -2) {Décision};
-  \node[draw, rectangle] (A) at (4, 2) {Autorisations};
-
-  \node (u) at (0.2,1) {\textcolor{purple}{utilisateur}};
-  \node (ac) at (2, -1) {\textcolor{purple}{accès à un fichier}};
-  \node (f) at (8, 1) {\textcolor{purple}{fichier}};
-
-  \draw[->,>=latex](S) -- (R);
-  \draw[->,>=latex](R) -- (C);
-  \draw[->,>=latex](O) -- (C);
-  \draw[->,>=latex](C) -- (D);
-  \draw[->,>=latex](A) -- (C);
-
-  \draw[-,>=latex, purple](u) -- (S);
-  \draw[-,>=latex, purple](ac) -- (R);
-  \draw[-,>=latex, purple](f) -- (O);
-\end{tikzpicture}
-\end{center}
-\end{frame}
-
-
-\begin{frame}
-\frametitle{Matrice de contrôle d'accès : limitations}
-
-\begin{center}
-\noindent
-\begin{tabular}{|c|llll|}\hline
-\backslashbox{Fichier}{Utilisateur}&Alice&Bob&Charlie&...\\\hline
-Fichier 1&1&1&0&...\\
-Fichier 2&0&1&1&...\\
-Fichier 3&1&0&0&...\\
-...&...&...&...&\\\hline
-\end{tabular}
-\end{center}
-
-\bigskip
-
-\begin{alertblock}{Inconvénients}
-  \begin{itemize}
-    \item taille de la matrice
-    \item suppression des autorisations
-    \end{itemize}
-\end{alertblock}
-
-\end{frame}
-
-
-
-\begin{frame}
-  \frametitle{Arborescence de fichiers et groupes d'utilisateurs}
-\begin{columns}
-
-\column{0.5\textwidth}
-\begin{center}
-  \begin{tikzpicture}[sibling distance=3em, level distance=3em, every node/.style = {shape=rectangle, rounded corners, align=center}]
-  \node at (0, 0) {$g_{A}$}
-    child { node {$u_{1}$} }
-    child { node {$g_{B}$}
-      child { node {$g_{C}$}
-        child { node {$u_{3}$} }
-        child { node {$u_{4}$} }
-        child { node {$u_{5}$} } }
-      child { node {$u_{2}$} }};
-    \node at (2, 0) {$g_{D}$}
-    child { node {$u_{6}$} };
-\end{tikzpicture}
-\end{center}
-
-$u_{i}$ : utilisateur
-
-$g_{i}$ : groupe
-
-\vspace{1em}
-
-$appartient_{gr}(u_{3}, g_{C})$
-
-$inclus_{gr}(g_{B}, g_{A})$
-
-\column{0.5\textwidth}
-\begin{center}
-  \begin{tikzpicture}[sibling distance=3em, level distance=3em,
-    every node/.style = {shape=rectangle, rounded corners, align=center},
-    level 2/.style={sibling distance=6em},
-    level 3/.style={sibling distance=3em}]
-    \node at (0, 0) {$d_{A}$}
-    child { node {$f_{1}$} }
-    child { node {$d_{B}$}
-      child { node {$d_{C}$}
-        child { node {$f_{2}$} }
-        child { node {$f_{3}$} }
-       }
-       child { node {$d_{D}$}
-         child { node {$f_{4}$} }
-         child { node {$f_{5}$} }  }};
-  \end{tikzpicture}
-\end{center}
-
-$f_{i}$ : fichier
-
-$d_{i}$ : dossier
-
-\vspace{1em}
-
-$appartient_{dos}(f_{4}, d_{D})$
-
-$inclus_{dos}(d_{C}, d_{B})$
-
-  \end{columns}
-\end{frame}
-
-
-\begin{frame}
-  \frametitle{Arborescence de fichiers et groupes d'utilisateurs}
-\begin{columns}
-
-\column{0.5\textwidth}
-\begin{center}
-  \begin{tikzpicture}[sibling distance=3em, level distance=3em, every node/.style = {shape=rectangle, rounded corners, align=center}]
-  \node at (0, 0) {$s_{1}$}
-    child { node {$s_{2}$} }
-    child { node {$s_{3}$}
-      child { node {$s_{4}$}
-        child { node {$s_{5}$} }
-        child { node {$s_{6}$} }
-        child { node {$s_{7}$} } }
-      child { node {$s_{8}$} }};
-    \node at (2, 0) {$s_{9}$}
-    child { node {$s_{10}$} };
-\end{tikzpicture}
-\end{center}
-
-$s_{i}$ : sujet
-
-\vspace{1em}
-
-$sous\_sujet(s_{2}, s_{1})$
-
-\column{0.5\textwidth}
-\begin{center}
-  \begin{tikzpicture}[sibling distance=3em, level distance=3em,
-    every node/.style = {shape=rectangle, rounded corners, align=center},
-    level 2/.style={sibling distance=6em},
-    level 3/.style={sibling distance=3em}]
-    \node at (0, 0) {$o_{1}$}
-    child { node {$o_{2}$} }
-    child { node {$o_{3}$}
-      child { node {$o_{4}$}
-        child { node {$o_{5}$} }
-        child { node {$o_{6}$} }
-       }
-       child { node {$o_{7}$}
-         child { node {$o_{8}$} }
-         child { node {$o_{9}$} }  }};
-  \end{tikzpicture}
-\end{center}
-
-$o_{i}$ : objet
-
-\vspace{1em}
-
-$sous\_objet(o_{2}, o_{1})$
-
-  \end{columns}
-\end{frame}
-
-
-
-
-\begin{frame}
-\frametitle{Les règles d'autorisation}
-\begin{itemize}
-  \item Règles simples :
-      $$autorise(s_{i}, o_{j})\textrm{, ou }sous\_sujet(s_{i}, s_{j})$$
-  \item Propagation des autorisations :
-    \begin{align*}
-      &\forall U, \forall G, \forall D, \\
-      &sous\_sujet(U, G) \wedge autorise(G, D) \Rightarrow autorise(U, D)
-      \end{align*}
-    \begin{align*}
-      &\forall F, \forall D, \forall U, \\
-      &sous\_objet(F, D) \wedge autorise(U, D) \Rightarrow autorise(U, F)
-      \end{align*}
-\end{itemize}
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Objectifs}
-
-Écrire un système permettant :
-\begin{enumerate}
-  \item de représenter ce type de règles
-  \item de répondre à des questions comme :
-    \begin{itemize}
-      \item \it{Alice peut-elle accéder au fichier A ?}
-      \item \it{Qui est-ce qui peut accéder au fichier A ?}
-      \item \it{À quels fichiers Alice peut-elle accéder ?}
-    \end{itemize}
-\end{enumerate}
-\end{frame}
-
-
-\section{Logique et Prolog}
-
-\begin{frame}
-\frametitle{Logique du premier ordre, ou calcul des prédicats}
-
-\begin{itemize}
-\item Des prédicats, des variables, des fonctions, les connecteurs logiques $\vee$ et $\wedge$, et les quantificateurs $\exists$ et $\forall$.
-
-\item Les règles sont des \textit{formules bien définies} dont toutes les variables sont liées (formules closes).
-
-\item Mise sous forme prénexe.
-
-\item Skolémisation.
-
-\item Mise sous forme normale conjonctive.
-\end{itemize}
-\end{frame}
-
-\begin{frame}
-\frametitle{Logique du premier ordre, ou calcul des prédicats}
-  Les règles sont maintenant toutes de la forme :
-  $$\forall X_{1}...X_{s},\bigwedge_{i=1}^{n}\left(\bigvee_{j=1}^{k}L_{i,j}\right)$$
-  En ne notant plus les quantificateurs, et en séparant en $n$ clauses, on se réduit à la forme :
-  $$\bigvee_{i=1}^{k}L_{i}$$ où les $L_{i}$ sont des littéraux positifs ou négatifs.
-\end{frame}
-
-\begin{frame}
-  \frametitle{Restriction aux clauses définies}
-  \begin{alertblock}{Attention}
-    Perte de généralité par rapport à la logique du premier ordre : existence d'algorithmes efficaces sur les clauses de Horn.
-  \end{alertblock}
-
-  Exactement un littéral positif :
-  $$\left(\bigvee_{i=1}^{n}\neg P_{i}\right)\vee{Q} \equiv \bigwedge_{i=1}^{n}P_{i}\Rightarrow Q$$
-  Si $n=0$ : un fait, Q toujours vrai.
-
-  \vspace{1em}
-
-  Notation Prolog :\\
-  \texttt{q(f1(X), ...) :- p1(f2(Y), ...), ..., pn(fk(Z), ...).}
-\end{frame}
-
+\section{Principe général}
 
 \begin{frame}[fragile]
   \frametitle{Exemple de programme Prolog}
-\begin{minted}{prolog}
+  \begin{minted}{prolog}
 apprend(eve, mathematiques).
 apprend(benjamin, informatique).
 apprend(benjamin, physique).
@@ -316,299 +69,142 @@ enseigne(pierre, informatique).
 étudiant_de(E,P):-apprend(E,M), enseigne(P,M).
 
 étudiant(E, pierre) ?
-\end{minted}
-\end{frame}
-
-
-
-\begin{frame}
-  \frametitle{La SLD-Résolution}
-  $$\frac{\neg(A_{1} \wedge A_{2} \wedge ... \wedge A_{n}) \qquad B_{1} \leftarrow B_{2} \wedge ... \wedge B_{k}}{\neg( B_{2} \wedge ... \wedge B_{k} \wedge A_{2} \wedge ... \wedge A_{n})\theta_{1}}$$
-
-  \vspace{1em}
-  Avec $\theta_{1} = \textsc{mgu}(A_{1}, B_{1})$.
-
-  \vspace{1em}
-
-  Si $\neg(A_{1} \wedge ... \wedge A_{n}) \Rightarrow Faux$, alors $(A_{1} \wedge ... \wedge A_{n})\theta_{1}$ est $Vrai$.
-
-  \vspace{1em}
-
-  Unification : substitution des variables de deux termes. Ex : \\
-  \texttt{étudiant(E, P) = étudiant(E, pierre)}
-
-  \vspace{1em}
-
-  Il existe un unifieur plus général.
-
-\end{frame}
-
-
-\begin{frame}[fragile]
-\frametitle{Algorithme d'unification}
-\begin{columns}
-\column{\dimexpr\paperwidth-30pt}
-\begin{Verbatim}[fontsize=\footnotesize]
-E = {étudiant_de(E,P) = étudiant_de(E, pierre)}.
-
-Répéter tant que E change :
-    Sélectionner une équation  s = t dans E;
-    Si s = t est de la forme :
-        f(s1, ..., sn) = f(t1, ..., tn) avec n >= 0
-            Alors remplacer l'équation par s1=t1 ... sn=tn
-        f(s1, ..., sm) = g(t1, ..., tn) avec f != g
-            Alors ÉCHEC
-        X = X
-            Alors supprimer l'équation
-        t = X où t n'est pas une variable
-            Alors remplacer l'équation par X = t
-        X = t où X != t et X apparait plus d'une fois dans E
-            Si X est un sous-terme de t Alors ÉCHEC
-            Sinon on remplace toutes les autres occurences de X par t
-\end{Verbatim}
-\end{columns}
-
-\vspace{1em}
-
-Termine et est correct.
-\end{frame}
-
-
-\begin{frame}
-  \frametitle{Le retour sur trace}
-  \begin{columns}
-
-  \column{0.5\textwidth}
-  \begin{center}
-  \begin{tikzpicture}[sibling distance=3em, level distance=3em,
-    every node/.style = {shape=circle, draw=black, fill=black, align=center},
-    level 2/.style={sibling distance=6em},
-    level 3/.style={sibling distance=3em}]
-    \node (a) at (0, 0) {}
-    child { node (b) {} }
-    child { node (c) {}
-      child { node (d) {}
-        child { node (e) {} }
-        child { node (f) {} }
-       }
-       child { node (g) {}
-         child { node (h) {} }
-         child { node (i) {} }  }};
-
-     \draw[->,>= latex, purple] (a) to[bend left=-20] (b);
-     \draw[->,>= latex, purple] (b) to[bend left=-20] (a);
-     \draw[->,>= latex, purple] (a) to[bend left=-20] (c);
-     \draw[->,>= latex, purple] (c) to[bend left=-20] (d);
-     \draw[->,>= latex, purple] (d) to[bend left=-20] (e);
-     \draw[->,>= latex, purple] (e) to[bend left=-20] (d);
-     \draw[->,>= latex, purple] (d) to[bend left=-20] (f);
-     \draw[->,>= latex, purple] (f) to[bend left=-20] (d);
-     \draw[->,>= latex, purple] (d) to[bend left=-20] (c);
-     \draw[->,>= latex, purple] (c) to[bend left=-20] (g);
-     \draw[->,>= latex, purple] (g) to[bend left=-20] (h);
-     \draw[->,>= latex, purple] (h) to[bend left=-20] (g);
-     \draw[->,>= latex, purple] (g) to[bend left=-20] (i);
-     \draw[->,>= latex, purple] (i) to[bend left=-20] (g);
-     \draw[->,>= latex, purple] (g) to[bend left=-20] (c);
-     \draw[->,>= latex, purple] (c) to[bend left=-20] (a);
-  \end{tikzpicture}
-\end{center}
-
-  \column{0.5\textwidth}
-  Il faut choisir dans quel ordre utiliser les clauses !
-
-  \vspace{1em}
-
-  Solution utilisée en Prolog : parcours en profondeur.
-
-  \begin{exampleblock}{Avantage}
-    Faible cout en mémoire.
-  \end{exampleblock}
-
-  \end{columns}
-\end{frame}
-
-
-
-\begin{frame}
-  \frametitle{Le retour sur trace}
-  \begin{columns}
-
-  \column{0.5\textwidth}
-  \begin{center}
-  \begin{tikzpicture}[sibling distance=3em, level distance=3em,
-    every node/.style = {shape=circle, draw=black, fill=black, align=center},
-    level 2/.style={sibling distance=6em},
-    level 3/.style={sibling distance=3em}]
-    \node (a) at (0, 0) {}
-    child { node (b) {} }
-    child { node (c) {}
-      child { node (d) {}
-        child { node (e) {} }
-        child { node (f) {} child {node (j) {} child {node[fill=white, draw = white] (k) {...}}} }
-       }
-       child { node (g) {}
-         child { node (h) {} }
-         child { node (i) {} }  }};
-
-     \draw[->,>= latex, purple] (a) to[bend left=-20] (b);
-     \draw[->,>= latex, purple] (b) to[bend left=-20] (a);
-     \draw[->,>= latex, purple] (a) to[bend left=-20] (c);
-     \draw[->,>= latex, purple] (c) to[bend left=-20] (d);
-     \draw[->,>= latex, purple] (d) to[bend left=-20] (e);
-     \draw[->,>= latex, purple] (e) to[bend left=-20] (d);
-     \draw[->,>= latex, purple] (d) to[bend left=-20] (f);
-     \draw[->,>= latex, purple] (f) to[bend left=-20] (j);
-     \draw[->,>= latex, purple] (j) to[bend left=-20] (k);
-    
-  \end{tikzpicture}
-\end{center}
-
-  \column{0.5\textwidth}
-  Il faut choisir dans quel ordre utiliser les clauses !
-
-  \vspace{1em}
- 
-  Solution utilisée en Prolog : parcours en profondeur.
-
-  \begin{exampleblock}{Avantage}
-    Faible cout en mémoire.
-  \end{exampleblock}
-
-  \begin{alertblock}{Inconvénient}
-    Risque manquer des solutions (boucles infinies).
-  \end{alertblock}
- 
-  \end{columns}
+  \end{minted}
 \end{frame}
 
 \section{Implémentation de l'interpréteur Prolog}
 
 \begin{frame}[fragile]
   \frametitle{L'analyse syntaxique}
+  Syntaxe minimale de Prolog sous la forme de Backus-Naur :
+  \begin{minted}{text}
+<Caractère> ::= 'a'..'z' | 'A'..'Z' | '_' | '0'..'9'
+<Mot>       ::= <Caractère> | <Caractère> <Mot>
+<Prédicat>  ::= 'a'..'z' | 'a'..'z' <Mot>
+<Variable>  ::= 'A'..'Z' | 'A'..'Z' <Mot>
+<Programme> ::= <Clause> | <Clause> <Programme>
+<Clause>    ::= <Terme> '.' | <Terme> ':-' <ListeTermes> '.'
+  \end{minted}
+  
+  \vspace{1em}
 
-Syntaxe minimale de Prolog sous la forme de Backus-Naur :
-\begin{columns}
-\column{\dimexpr\paperwidth-60pt}
-\begin{Verbatim}[fontsize=\footnotesize]
-<Caractère>    ::=  'a'..'z' | 'A'..'Z' | '_' | '0'..'9'
-<Mot>          ::=  <Caractère> | <Caractère> <Mot>
-<Prédicat>     ::=  'a'..'z' | 'a'..'z' <Mot>
-<Variable>     ::=  'A'..'Z' | 'A'..'Z' <Mot>
-<Programme>    ::=  <Clause> | <Clause> <Programme>
-<Clause>       ::=  <Terme> '.' | <Terme> ':-' <ListeTermes> '.'
-\end{Verbatim}
-\end{columns}
-
-\vspace{1em}
-
-Implémentation d'un analyseur syntaxique récursif descendant.
-
-\vspace{1em}
-
-\begin{minted}[fontsize=\footnotesize]{ocaml}
+  \begin{minted}[fontsize=\footnotesize]{ocaml}
 type var = Id of string * int
 type term = Var of var | Predicate of string * (term list)
 type clause = Clause of term * (term list)
-\end{minted}
-
-\end{frame}
-
-\begin{frame}[fragile]
-  \frametitle{L'unification}
-  L'ensemble d'équations est représenté grace à un \texttt{Set}  en OCaml.
+  \end{minted}
 
   \vspace{1em}
-
-  Les substitutions sont des tableaux associatifs des variables sur les termes.
-
-  \vspace{1em}
-
-  Accès, insertion et suppression en $O(log(n))$.
+  La grammaire est $LL(1)$. Résultat : 1 Mo/sec à 1GHz.
 \end{frame}
+
+
+
+\begin{frame}
+  \frametitle{Le retour sur trace}
+  \begin{columns}
+    \column{0.5\textwidth}
+    \begin{center}
+      \begin{tikzpicture}[sibling distance=3em, level distance=3em,
+        every node/.style = {shape=circle, draw=black, fill=black, align=center},
+        level 2/.style={sibling distance=6em},
+        level 3/.style={sibling distance=3em}]
+        \node (a) at (0, 0) {}
+        child { node (b) {} }
+        child { node (c) {}
+          child { node (d) {}
+            child { node (e) {} }
+            child { node (f) {} child {node (j) {} child {node[fill=white, draw = white] (k) {...}}} }
+          }
+          child { node (g) {}
+            child { node (h) {} }
+            child { node (i) {} }  }};
+        
+        \draw[->,>= latex, purple] (a) to[bend left=-20] (b);
+        \draw[->,>= latex, purple] (b) to[bend left=-20] (a);
+        \draw[->,>= latex, purple] (a) to[bend left=-20] (c);
+        \draw[->,>= latex, purple] (c) to[bend left=-20] (d);
+        \draw[->,>= latex, purple] (d) to[bend left=-20] (e);
+        \draw[->,>= latex, purple] (e) to[bend left=-20] (d);
+        \draw[->,>= latex, purple] (d) to[bend left=-20] (f);
+        \draw[->,>= latex, purple] (f) to[bend left=-20] (j);
+        \draw[->,>= latex, purple] (j) to[bend left=-20] (k);
+      \end{tikzpicture}
+    \end{center}
+
+    \column{0.5\textwidth}
+    Il faut choisir dans quel ordre utiliser les clauses !
+    
+    \vspace{1em}
+    
+    Solution utilisée en Prolog : parcours en profondeur.
+
+    \begin{exampleblock}{Avantage}
+      Faible cout en mémoire.
+    \end{exampleblock}
+    
+    \begin{alertblock}{Inconvénient}
+      Risque manquer des solutions (boucles infinies).
+    \end{alertblock}
+ 
+  \end{columns}
+\end{frame}
+
 
 \begin{frame}[fragile]
   \frametitle{L'arbre de recherche}
   Utilisation de l'évaluation paresseuse pour représenter l'arbre possiblement infini :
-\begin{minted}[fontsize=\footnotesize]{ocaml}
+  \begin{minted}[fontsize=\footnotesize]{ocaml}
 type 'a tree = Leaf of 'a | Node of 'a tree Lazy.t list
-\end{minted}
+  \end{minted}
 
-\vspace{1em}
-
-Je transforme l'arbre en une séquence possiblement infinie de ses feuilles (les solutions) :
-
-\begin{minted}[fontsize=\footnotesize]{ocaml}
+  \vspace{1em}
+  
+  Je transforme l'arbre en une séquence possiblement infinie de ses feuilles (les solutions) :
+  
+  \begin{minted}[fontsize=\footnotesize]{ocaml}
 let rec to_seq = function
 | Leaf str -> Seq.return str
 | Node tl -> Seq.flat_map
-    (fun par -> to_seq (Lazy.force par)) (list_to_seq tl)
-\end{minted}
+  (fun par -> to_seq (Lazy.force par)) (list_to_seq tl)
+  \end{minted}
 
-\vspace{1em}
-
-J'applique des filtres sur cette séquence, et il suffit d'itérer les solutions.
-
+  \vspace{1em}
+  J'applique des filtres sur cette séquence, et il suffit d'itérer les solutions.
 \end{frame}
 
-\begin{frame}[fragile]
-  \frametitle{L'arbre de recherche}
-\begin{columns}
-\column{\dimexpr\paperwidth-40pt}
-\begin{minted}[fontsize=\footnotesize]{ocaml}
-let rec sld_tree world req subs n =
-match req with
-| [] -> Leaf subs
-| head_request_term :: other_request_terms ->
-   Node
-    (List.filter_map
-      (fun c ->
-        let (Clause (left_member, right_member)) = rename n c in
-        match mgu head_request_term left_member with
-         | None -> None
-         | Some unifier ->
-           Some
-            ( lazy
-            (sld_tree world
-            (apply_subst_on_termlist unifier
-                (right_member @ other_request_terms))
-            (unifier :: subs) (n + 1)) ))
-    world)
-\end{minted}
-\end{columns}
-\end{frame}
-
-\section{Tests de l'implémentation}
+\section{Le puzzle du zèbre}
 
 \begin{frame}[fragile]
-  \frametitle{Le problème du zèbre}
-\begin{Verbatim}[fontsize=\footnotesize]
+  \frametitle{Le problème du zèbre (\textit{Life International, 1962)}}
+  \begin{minted}{text}
 There are five houses.
 The Englishman lives in the red house.
 The Spaniard owns the dog.
 Coffee is drunk in the green house.
 The Ukrainian drinks tea.
-The green house is immediately to the right of the ivory house.
+The green house is immediately to the right
+  of the ivory house.
 The Old Gold smoker owns snails.
 Kools are smoked in the yellow house.
 Milk is drunk in the middle house.
 The Norwegian lives in the first house.
 The man who smokes Chesterfields lives in the house
-        next to the man with the fox.
+  next to the man with the fox.
 Kools are smoked in the house next to the house
-        where the horse is kept.
+  where the horse is kept.
 The Lucky Strike smoker drinks orange juice.
 The Japanese smokes Parliaments.
 The Norwegian lives next to the blue house.
 
 Now, who drinks water? Who owns the zebra?
-\end{Verbatim}
+  \end{minted}
 \end{frame}
 
 
 \begin{frame}[fragile]
   \frametitle{Le problème du zèbre}
-\begin{minted}{prolog}
+  \begin{minted}{prolog}
 member(X, [X | Xs]).
 member(X, [Y | Ys]) :- member(X, Ys).
 
@@ -619,12 +215,12 @@ nextto(A, B, X) :- isright(A, B, X).
 nextto(A, B, X) :- isright(B, A, X).
 
 equal(X, X).
-\end{minted}
+  \end{minted}
 \end{frame}
 
 \begin{frame}[fragile]
   \frametitle{Le problème du zèbre}
-\begin{minted}{prolog}
+  \begin{minted}{prolog}
 zebra(H, W, Z):-
 equal(H, [[norwegian, _, _, _, _], _,
           [_, _, _, milk, _], _, _]),
@@ -638,13 +234,300 @@ member([W, _, _, water, _], H),
 member([Z, zebra, _, _, _], H).
 
 zebra(Houses, WaterDrinker, ZebraOwner) ?
-\end{minted}
+  \end{minted}
+\end{frame}
+
+\begin{frame}[plain]
+  \frametitle{Conclusion}
+  Efficacité du langage Prolog pour résoudre des problèmes de logique.
+
+  \vspace{1em}
+  Pas besoin d'expliquer à l'ordinateur comment résoudre le problème : moins d'erreurs possible.
+\end{frame}
+
+\section{Subtilités intéressantes du code}
+
+\begin{frame}[fragile]
+  \frametitle{Typage et variants polymorphes}
+  \begin{minted}{ocaml}
+type id = Id of string * int
+
+type term =
+  [ `GeneralVar of id
+  | `TableVar of id
+  | `EmptyTable
+  | `Table of term * table
+  | `Predicate of string * term list ]
+
+and table = [ `TableVar of id | `EmptyTable
+            | `Table of term * table ]
+
+type var = [ `GeneralVar of id | `TableVar of id ]
+  \end{minted}
+\end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{Algorithme d'unification}
+  \begin{minted}{text}
+E = {étudiant_de(E,P) = étudiant_de(E, pierre)}.
+
+Répéter tant que E change :
+  Sélectionner une équation  s == t dans E;
+  Si s = t est de la forme :
+    f(s1, ..., sn) = f(t1, ..., tn) avec n >= 0
+      Alors remplacer l'équation par s1=t1 ... sn=tn
+    f(s1, ..., sm) = g(t1, ..., tn) avec f != g
+      Alors ÉCHEC
+    X = X
+      Alors supprimer l'équation
+    t = X où t n'est pas une variable
+      Alors remplacer l'équation par X = t
+    X = t où X != t et X apparait plus d'une fois dans E
+      Si X est un sous-terme de t Alors ÉCHEC
+      Sinon on remplace toutes les autres occurences
+      de X par t
+  \end{minted}
+
+  \vspace{1em}
+  Termine et est correct.
+\end{frame}
+
+
+\begin{frame}[fragile]
+  \frametitle{L'arbre de recherche}
+  \begin{minted}[fontsize=\footnotesize]{ocaml}
+let rec sld_tree world request substitution n =
+  match request with
+  | [] -> Leaf substitution
+  | head_request_term :: other_request_terms ->
+      let filter_clause c =
+        let (Clause (left_member, right_member)) =
+          rename n c in
+        let new_tree unifier = lazy
+            (sld_tree world
+              (List.map (apply unifier)
+              (right_member @ other_request_terms))
+               (unifier @ substitution) (n + 1)) in
+         Option.map new_tree
+          (unify head_request_term left_member) in
+       Node (List.filter_map filter_clause world)
+  \end{minted}
+\end{frame}
+
+
+\section{Application au contrôle d'accès - Sécurité}
+
+\begin{frame}
+  \frametitle{Contrôle d'accès : motivation}
+
+  \begin{center}
+    \begin{tikzpicture}
+      \node[draw, ellipse] (S) at (0,0) {Sujet};
+      \node[draw, ellipse] (O) at (8,2) {Objet};
+      \node[draw, diamond, aspect=2.5] (C) at (6,0) {Contrôleur};
+      \node[draw, rectangle,rounded corners=3] (R) at (2.5, 0) {Requête};
+      \node[draw, rectangle,rounded corners=3] (D) at (6, -2) {Décision};
+      \node[draw, rectangle] (A) at (4, 2) {Autorisations};
+      
+      \node (u) at (0.2,1) {\textcolor{purple}{utilisateur}};
+      \node (ac) at (2, -1) {\textcolor{purple}{accès à un fichier}};
+      \node (f) at (8, 1) {\textcolor{purple}{fichier}};
+      
+      \draw[->,>=latex](S) -- (R);
+      \draw[->,>=latex](R) -- (C);
+      \draw[->,>=latex](O) -- (C);
+      \draw[->,>=latex](C) -- (D);
+      \draw[->,>=latex](A) -- (C);
+      
+      \draw[-,>=latex, purple](u) -- (S);
+      \draw[-,>=latex, purple](ac) -- (R);
+      \draw[-,>=latex, purple](f) -- (O);
+    \end{tikzpicture}
+  \end{center}
+\end{frame}
+
+
+\begin{frame}
+  \frametitle{Matrice de contrôle d'accès : limitations}
+
+  \begin{center}
+    \noindent
+    \begin{tabular}{|c|llll|}\hline
+      \backslashbox{Fichier}{Utilisateur}&Alice&Bob&Charlie&...\\\hline
+      Fichier 1&1&1&0&...\\
+      Fichier 2&0&1&1&...\\
+      Fichier 3&1&0&0&...\\
+      ...&...&...&...&\\\hline
+    \end{tabular}
+  \end{center}
+  
+  \bigskip
+  
+  \begin{alertblock}{Inconvénients}
+    \begin{itemize}
+    \item taille de la matrice
+    \item suppression des autorisations
+    \end{itemize}
+  \end{alertblock}
+\end{frame}
+
+
+
+\begin{frame}
+  \frametitle{Arborescence de fichiers et groupes d'utilisateurs}
+  \begin{columns}
+    
+    \column{0.5\textwidth}
+    \begin{center}
+      \begin{tikzpicture}[sibling distance=3em, level distance=3em, every node/.style = {shape=rectangle, rounded corners, align=center}]
+        \node at (0, 0) {$g_{A}$}
+        child { node {$u_{1}$} }
+        child { node {$g_{B}$}
+          child { node {$g_{C}$}
+            child { node {$u_{3}$} }
+            child { node {$u_{4}$} }
+            child { node {$u_{5}$} } }
+          child { node {$u_{2}$} }};
+        \node at (2, 0) {$g_{D}$}
+        child { node {$u_{6}$} };
+      \end{tikzpicture}
+    \end{center}
+    
+    $u_{i}$ : utilisateur
+    
+    $g_{i}$ : groupe
+    
+    \vspace{1em}
+    
+    $appartient_{gr}(u_{3}, g_{C})$
+    
+    $inclus_{gr}(g_{B}, g_{A})$
+    
+    \column{0.5\textwidth}
+    \begin{center}
+      \begin{tikzpicture}[sibling distance=3em, level distance=3em,
+        every node/.style = {shape=rectangle, rounded corners, align=center},
+        level 2/.style={sibling distance=6em},
+        level 3/.style={sibling distance=3em}]
+        \node at (0, 0) {$d_{A}$}
+        child { node {$f_{1}$} }
+        child { node {$d_{B}$}
+          child { node {$d_{C}$}
+            child { node {$f_{2}$} }
+            child { node {$f_{3}$} }
+          }
+          child { node {$d_{D}$}
+            child { node {$f_{4}$} }
+            child { node {$f_{5}$} }  }};
+      \end{tikzpicture}
+    \end{center}
+    
+    $f_{i}$ : fichier
+    
+    $d_{i}$ : dossier
+    
+    \vspace{1em}
+    
+    $appartient_{dos}(f_{4}, d_{D})$
+    
+    $inclus_{dos}(d_{C}, d_{B})$
+    
+  \end{columns}
+\end{frame}
+
+
+\begin{frame}
+  \frametitle{Arborescence de fichiers et groupes d'utilisateurs}
+  \begin{columns}
+    
+    \column{0.5\textwidth}
+    \begin{center}
+      \begin{tikzpicture}[sibling distance=3em, level distance=3em, every node/.style = {shape=rectangle, rounded corners, align=center}]
+        \node at (0, 0) {$s_{1}$}
+        child { node {$s_{2}$} }
+        child { node {$s_{3}$}
+          child { node {$s_{4}$}
+            child { node {$s_{5}$} }
+            child { node {$s_{6}$} }
+            child { node {$s_{7}$} } }
+          child { node {$s_{8}$} }};
+        \node at (2, 0) {$s_{9}$}
+        child { node {$s_{10}$} };
+      \end{tikzpicture}
+    \end{center}
+    
+    $s_{i}$ : sujet
+    
+    \vspace{1em}
+    
+    $sous\_sujet(s_{2}, s_{1})$
+    
+    \column{0.5\textwidth}
+    \begin{center}
+      \begin{tikzpicture}[sibling distance=3em, level distance=3em,
+        every node/.style = {shape=rectangle, rounded corners, align=center},
+        level 2/.style={sibling distance=6em},
+        level 3/.style={sibling distance=3em}]
+        \node at (0, 0) {$o_{1}$}
+        child { node {$o_{2}$} }
+        child { node {$o_{3}$}
+          child { node {$o_{4}$}
+            child { node {$o_{5}$} }
+            child { node {$o_{6}$} }
+          }
+          child { node {$o_{7}$}
+            child { node {$o_{8}$} }
+            child { node {$o_{9}$} }  }};
+      \end{tikzpicture}
+    \end{center}
+
+    $o_{i}$ : objet
+    
+    \vspace{1em}
+
+    $sous\_objet(o_{2}, o_{1})$
+    
+  \end{columns}
+\end{frame}
+
+
+
+\begin{frame}
+  \frametitle{Les règles d'autorisation}
+  \begin{itemize}
+  \item Règles simples :
+    $$autorise(s_{i}, o_{j})\textrm{, ou }sous\_sujet(s_{i}, s_{j})$$
+  \item Propagation des autorisations :
+    \begin{align*}
+      &\forall U, \forall G, \forall D, \\
+      &sous\_sujet(U, G) \wedge autorise(G, D) \Rightarrow autorise(U, D)
+    \end{align*}
+    \begin{align*}
+      &\forall F, \forall D, \forall U, \\
+      &sous\_objet(F, D) \wedge autorise(U, D) \Rightarrow autorise(U, F)
+    \end{align*}
+  \end{itemize}  
+\end{frame}
+
+\begin{frame}
+  \frametitle{Objectifs}
+  
+  Écrire un système permettant :
+  \begin{enumerate}
+  \item de représenter ce type de règles
+  \item de répondre à des questions comme :
+    \begin{itemize}
+    \item \it{Alice peut-elle accéder au fichier A ?}
+    \item \it{Qui est-ce qui peut accéder au fichier A ?}
+    \item \it{À quels fichiers Alice peut-elle accéder ?}
+    \end{itemize}
+  \end{enumerate}
 \end{frame}
 
 
 \begin{frame}[fragile]
   \frametitle{Retour au contrôle d'accès}
-\begin{minted}{prolog}
+  \begin{minted}{prolog}
 sous_sujet(alice, groupe1).
 sous_sujet(groupe1, groupe2).
 sous_sujet(bob, groupe2).
@@ -659,7 +542,74 @@ autorise(U, F) :-  sous_objet(F, D), autorise(U, D).
 autorise(U, F) :-  sous_sujet(U, G), autorise(G, F).
 
 autorise(U, F) ?
-\end{minted}
+  \end{minted}
+\end{frame}
+
+\section{Logique : rappels, Prolog et clauses définies}
+
+\begin{frame}
+  \frametitle{Logique du premier ordre, ou calcul des prédicats}
+
+  \begin{itemize}
+  \item Des prédicats, des variables, des fonctions, les connecteurs logiques $\vee$ et $\wedge$, et les quantificateurs $\exists$ et $\forall$.
+    
+  \item Les règles sont des \textit{formules bien définies} dont toutes les variables sont liées (formules closes).
+
+  \item Mise sous forme prénexe.
+    
+  \item Skolémisation.
+
+  \item Mise sous forme normale conjonctive.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}
+  \frametitle{Logique du premier ordre, ou calcul des prédicats}
+  Les règles sont maintenant toutes de la forme :
+  $$\forall X_{1}...X_{s},\bigwedge_{i=1}^{n}\left(\bigvee_{j=1}^{k}L_{i,j}\right)$$
+  En ne notant plus les quantificateurs, et en séparant en $n$ clauses, on se réduit à la forme :
+  $$\bigvee_{i=1}^{k}L_{i}$$ où les $L_{i}$ sont des littéraux positifs ou négatifs.
+\end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{Restriction aux clauses définies}
+  \begin{alertblock}{Attention}
+    Perte de généralité par rapport à la logique du premier ordre : existence d'algorithmes efficaces sur les clauses de Horn.
+  \end{alertblock}
+  
+  Exactement un littéral positif :
+  $$\left(\bigvee_{i=1}^{n}\neg P_{i}\right)\vee{Q} \equiv \bigwedge_{i=1}^{n}P_{i}\Rightarrow Q$$
+  Si $n=0$ : un fait, Q toujours vrai.
+
+  \vspace{1em}
+  
+  Notation Prolog :
+  \begin{minted}{prolog}  
+q(f1(X), ...) :- p1(f2(Y), ...), ..., pn(fk(Z), ...).
+  \end{minted}
+\end{frame}
+
+
+\begin{frame}[fragile]
+  \frametitle{La SLD-Résolution}
+  $$\frac{\neg(A_{1} \wedge A_{2} \wedge ... \wedge A_{n}) \qquad B_{1} \leftarrow B_{2} \wedge ... \wedge B_{k}}{\neg( B_{2} \wedge ... \wedge B_{k} \wedge A_{2} \wedge ... \wedge A_{n})\theta_{1}}$$
+  
+  \vspace{1em}
+  Avec $\theta_{1} = \textsc{mgu}(A_{1}, B_{1})$.
+
+  \vspace{1em}
+
+  Si $\neg(A_{1} \wedge ... \wedge A_{n}) \Rightarrow Faux$, alors $(A_{1} \wedge ... \wedge A_{n})\theta_{1}$ est $Vrai$.
+  
+  \vspace{1em}
+
+  Unification : substitution des variables de deux termes. Ex : \\
+  \begin{minted}{prolog}
+étudiant(E, P) = étudiant(E, pierre)
+  \end{minted}
+
+  \vspace{1em}
+  Il existe un unifieur plus général.
 \end{frame}
 
 
