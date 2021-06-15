@@ -24,7 +24,7 @@
 
 \author{\textsc{Samuel Gallay}}
 
-\date{\today}
+\date{candidat n°12174}
 
 \defbeamertemplate{section in toc}{sections numbered roman}{%
   \leavevmode%
@@ -56,6 +56,8 @@ Sauf mention explicite de votre part, seules les trois premières parties seront
 
 \section{Principe général}
 
+
+
 \begin{frame}[fragile]
   \frametitle{Exemple de programme Prolog}
   \begin{minted}{prolog}
@@ -66,10 +68,15 @@ enseigne(alice, physique).
 enseigne(pierre, mathematiques).
 enseigne(pierre, informatique).
 
-étudiant_de(E,P):-apprend(E,M), enseigne(P,M).
+étudiant(E,P) :- apprend(E,M), enseigne(P,M).
 
 étudiant(E, pierre) ?
   \end{minted}
+  
+  \begin{exampleblock}{Signification :}
+    \mintinline{prolog}{apprend(E,M)} $et$ \mintinline{prolog}{enseigne(P,M)} $implique$ \mintinline{prolog}{étudiant(E,P)}
+  \end{exampleblock}
+
 \end{frame}
 
 \section{Implémentation de l'interpréteur Prolog}
@@ -84,6 +91,8 @@ enseigne(pierre, informatique).
 <Variable>  ::= 'A'..'Z' | 'A'..'Z' <Mot>
 <Programme> ::= <Clause> | <Clause> <Programme>
 <Clause>    ::= <Terme> '.' | <Terme> ':-' <ListeTermes> '.'
+<Terme>     ::= <Variable> | <Predicat>
+              | <Predicat> '(' <ListeTermes> ')'
   \end{minted}
   
   \vspace{1em}
@@ -233,16 +242,19 @@ isright([_, _, _, _, ivory], [_, _, _, _, green], H),
 member([W, _, _, water, _], H),
 member([Z, zebra, _, _, _], H).
 
-zebra(Houses, WaterDrinker, ZebraOwner) ?
+zebra(H, W, Z) ?
   \end{minted}
+
+  \begin{exampleblock}{Signification des variables :}
+    \mintinline{prolog}{[[norwegian, dog, water], [japanese, zebra milk]]} est un exemple de liste \mintinline{prolog}{H}.
+  \end{exampleblock}
+  
 \end{frame}
 
 \begin{frame}[plain]
   \frametitle{Conclusion}
-  Efficacité du langage Prolog pour résoudre des problèmes de logique.
-
-  \vspace{1em}
-  Pas besoin d'expliquer à l'ordinateur comment résoudre le problème : moins d'erreurs possible.
+  Efficacité de l'exécution sur des problèmes logiques et simplicité du code.
+  \tableofcontents
 \end{frame}
 
 \section{Subtilités intéressantes du code}
@@ -254,15 +266,15 @@ type id = Id of string * int
 
 type term =
   [ `GeneralVar of id
-  | `TableVar of id
-  | `EmptyTable
-  | `Table of term * table
+  | `ListVar of id
+  | `EmptyList
+  | `List of term * prolog_list
   | `Predicate of string * term list ]
 
-and table = [ `TableVar of id | `EmptyTable
-            | `Table of term * table ]
+and prolog_list  = [ `ListVar of id | `EmptyList
+                   | `List of term * prolog_list ]
 
-type var = [ `GeneralVar of id | `TableVar of id ]
+type var = [ `GeneralVar of id | `ListVar of id ]
   \end{minted}
 \end{frame}
 
@@ -545,7 +557,7 @@ autorise(U, F) ?
   \end{minted}
 \end{frame}
 
-\section{Logique : rappels, Prolog et clauses définies}
+\section{Rudiments de logique}
 
 \begin{frame}
   \frametitle{Logique du premier ordre, ou calcul des prédicats}
@@ -592,25 +604,26 @@ q(f1(X), ...) :- p1(f2(Y), ...), ..., pn(fk(Z), ...).
 
 \begin{frame}[fragile]
   \frametitle{La SLD-Résolution}
+
+  On considère une requête $A_{1} \wedge A_{2} \wedge ... \wedge A_{n}$ et une clause $B_{1} \leftarrow B_{2} \wedge ... \wedge B_{k}$ pour former une nouvelle requête.
+  
   $$\frac{\neg(A_{1} \wedge A_{2} \wedge ... \wedge A_{n}) \qquad B_{1} \leftarrow B_{2} \wedge ... \wedge B_{k}}{\neg( B_{2} \wedge ... \wedge B_{k} \wedge A_{2} \wedge ... \wedge A_{n})\theta_{1}}$$
   
   \vspace{1em}
-  Avec $\theta_{1} = \textsc{mgu}(A_{1}, B_{1})$.
+  Avec $\theta_{1} = \textsc{mgu}(A_{1}, B_{1})$ l'unifieur le plus général de $A_1$ et $B_2$, quand il existe.
 
   \vspace{1em}
 
   Si $\neg(A_{1} \wedge ... \wedge A_{n}) \Rightarrow Faux$, alors $(A_{1} \wedge ... \wedge A_{n})\theta_{1}$ est $Vrai$.
   
-  \vspace{1em}
 
-  Unification : substitution des variables de deux termes. Ex : \\
-  \begin{minted}{prolog}
-étudiant(E, P) = étudiant(E, pierre)
-  \end{minted}
-
-  \vspace{1em}
-  Il existe un unifieur plus général.
 \end{frame}
 
 
 \end{document}
+
+%%% Local Variables: 
+%%% coding: utf-8
+%%% mode: latex
+%%% TeX-engine: xetex
+%%% End: 

@@ -6,20 +6,20 @@ type id = Id of string * int
 
 type term =
   [ `GeneralVar of id
-  | `TableVar of id
-  | `EmptyTable
-  | `Table of term * table
+  | `ListVar of id
+  | `EmptyList
+  | `List of term * prolog_list
   | `Predicate of string * term list ]
 
-and table = [ `TableVar of id | `EmptyTable | `Table of term * table ]
+and prolog_list = [ `ListVar of id | `EmptyList | `List of term * prolog_list ]
 
-type var = [ `GeneralVar of id | `TableVar of id ]
+type var = [ `GeneralVar of id | `ListVar of id ]
 
 type clause = Clause of term * term list
 
 type subst =
   | GeneralSubst of [ `GeneralVar of id ] * term
-  | TableSubst of [ `TableVar of id ] * table
+  | ListSubst of [ `ListVar of id ] * prolog_list
 
 type substitution = subst list
 
@@ -42,18 +42,18 @@ type token =
 
 let rec string_of_term : term -> string = function
   | `GeneralVar (Id (s, _)) -> if s.[0] = '_' then "_" else s
-  | `TableVar (Id (s, _)) -> s
-  | (`EmptyTable | `Table _) as t -> "[" ^ string_of_tblcontent t ^ "]"
+  | `ListVar (Id (s, _)) -> s
+  | (`EmptyList | `List _) as t -> "[" ^ string_of_listcontent t ^ "]"
   | `Predicate (s, []) -> s
   | `Predicate (s, l) -> s ^ "(" ^ (l |> List.map string_of_term |> String.concat ", ") ^ ")"
 
-and string_of_tblcontent : [ `EmptyTable | `Table of term * table ] -> string = function
-  | `EmptyTable -> ""
-  | `Table (t, tail) -> (
+and string_of_listcontent : [ `EmptyList | `List of term * prolog_list ] -> string = function
+  | `EmptyList -> ""
+  | `List (t, tail) -> (
       match tail with
-      | `EmptyTable -> string_of_term t
-      | `Table _ as tbl -> string_of_term t ^ ", " ^ string_of_tblcontent tbl
-      | `TableVar (Id (s, _)) -> string_of_term t ^ " | " ^ s)
+      | `EmptyList -> string_of_term t
+      | `List _ as lst -> string_of_term t ^ ", " ^ string_of_listcontent lst
+      | `ListVar (Id (s, _)) -> string_of_term t ^ " | " ^ s)
 
 let string_of_clause (Clause (t, tl)) =
   string_of_term t
@@ -148,8 +148,8 @@ let parse_token tk = function
 let look_ahead tl f =
   match tl with [] -> Error "Unexpected end of token stream." | tok :: toklist -> f (tok, toklist)
 
-let rec table_of_termlist : table -> term list -> table =
- fun tail -> function [] -> tail | h :: t -> `Table (h, table_of_termlist tail t)
+let rec prolog_list_of_termlist : prolog_list -> term list -> prolog_list =
+ fun tail -> function [] -> tail | h :: t -> `List (h, prolog_list_of_termlist tail t)
 
 let new_id =
   let counter_unnamed_ids = ref 0 in
@@ -162,7 +162,7 @@ let rec parse_term tl =
     | VariableString s, l -> Ok (`GeneralVar (if s = "_" then new_id () else Id (s, 0)), l)
     | PredicateString s, l ->
         l |> parse_predicate_without_string *> fun term_list -> `Predicate (s, term_list)
-    | LeftBracket, l -> l |> parse_table_without_left_bracket *> fun tbl -> (tbl :> term)
+    | LeftBracket, l -> l |> parse_prolog_list_without_left_bracket *> fun lst -> (lst :> term)
     | tok, _ -> Error ("Not a valid term : " ^ string_of_token tok))
 
 and parse_predicate_without_string tl =
@@ -178,26 +178,26 @@ and parse_term_list_without_first_term tl =
     | Comma, l -> l |> parse_term *~ parse_term_list_without_first_term *> fun (a, b) -> a :: b
     | _, _ -> Ok ([], tl))
 
-and parse_table_without_left_bracket tl =
+and parse_prolog_list_without_left_bracket tl =
   look_ahead tl (function
-    | RightBracket, l -> Ok (`EmptyTable, l)
+    | RightBracket, l -> Ok (`EmptyList, l)
     | _, _ ->
         tl
-        |> parse_term_list *~ parse_table_without_term_list *> fun (termlist, table) ->
-           table_of_termlist table termlist)
+        |> parse_term_list *~ parse_prolog_list_without_term_list *> fun (termlist, plist) ->
+           prolog_list_of_termlist plist termlist)
 
-and parse_table_without_term_list tl =
+and parse_prolog_list_without_term_list tl =
   look_ahead tl (function
-    | RightBracket, l -> Ok (`EmptyTable, l)
-    | Vertical, l -> l |> parse_table_queue
-    | tok, _ -> Error ("Invalid right part of the table : " ^ string_of_token tok))
+    | RightBracket, l -> Ok (`EmptyList, l)
+    | Vertical, l -> l |> parse_prolog_list_queue
+    | tok, _ -> Error ("Invalid right part of the list : " ^ string_of_token tok))
 
-and parse_table_queue tl =
+and parse_prolog_list_queue tl =
   look_ahead tl (function
     | LeftBracket, l ->
-        l |> parse_table_without_left_bracket *~ parse_token RightBracket *> ignore_right
-    | VariableString s, l -> l |> parse_token RightBracket *> fun _ -> `TableVar (Id (s, 0))
-    | _ -> Error "Invalid table queue")
+        l |> parse_prolog_list_without_left_bracket *~ parse_token RightBracket *> ignore_right
+    | VariableString s, l -> l |> parse_token RightBracket *> fun _ -> `ListVar (Id (s, 0))
+    | _ -> Error "Invalid list queue")
 
 let parse_right_clause tl =
   look_ahead tl (function
@@ -220,13 +220,13 @@ let parse_request tl = tl |> parse_term_list *~ parse_token EndOfFile *> ignore_
 
 let map_vars f g =
   let rec mapterm : term -> term = function
-    | #table as tbl -> (maptable tbl :> term)
+    | #prolog_list as lst -> (map_prolog_list lst :> term)
     | `GeneralVar _ as v -> f v
     | `Predicate (s, l) -> `Predicate (s, List.map mapterm l)
-  and maptable : table -> table = function
-    | `EmptyTable -> `EmptyTable
-    | `TableVar _ as v -> g v
-    | `Table (h, t) -> `Table (mapterm h, maptable t)
+  and map_prolog_list : prolog_list -> prolog_list = function
+    | `EmptyList -> `EmptyList
+    | `ListVar _ as v -> g v
+    | `List (h, t) -> `List (mapterm h, map_prolog_list t)
   in
   mapterm
 
@@ -234,7 +234,7 @@ let apply_subst : subst -> term -> term =
   let id x = x in
   function
   | GeneralSubst (var, t) -> map_vars (function v -> if var = v then t else (v :> term)) id
-  | TableSubst (var, t) -> map_vars id (function v -> if var = v then t else (v :> table))
+  | ListSubst (var, t) -> map_vars id (function v -> if var = v then t else (v :> prolog_list))
 
 (* De droite à gauche *)
 let apply (s : substitution) term = List.fold_right apply_subst s term
@@ -247,19 +247,19 @@ let rec unify : term -> term -> substitution option =
  fun t1 t2 ->
   let f ta tb s1 = Option.bind (unify (apply s1 ta) (apply s1 tb)) (fun s2 -> Some (s2 @ s1)) in
   match (t1, t2) with
-  | (`TableVar _ as v), ((`TableVar _ | `EmptyTable | `Table _) as t) -> Some [ TableSubst (v, t) ]
-  | (`EmptyTable | `Table _), `TableVar _ -> unify t2 t1
-  | `EmptyTable, `EmptyTable -> Some []
-  | `Table (h1, t1), `Table (h2, t2) -> Option.bind (unify h1 h2) (f (t1 :> term) (t2 :> term))
-  | `Table _, `EmptyTable | `EmptyTable, `Table _ -> None
+  | (`ListVar _ as v), ((`ListVar _ | `EmptyList | `List _) as t) -> Some [ ListSubst (v, t) ]
+  | (`EmptyList | `List _), `ListVar _ -> unify t2 t1
+  | `EmptyList, `EmptyList -> Some []
+  | `List (h1, t1), `List (h2, t2) -> Option.bind (unify h1 h2) (f (t1 :> term) (t2 :> term))
+  | `List _, `EmptyList | `EmptyList, `List _ -> None
   | (`GeneralVar _ as v), _ -> Some [ GeneralSubst (v, t2) ]
   | _, `GeneralVar _ -> unify t2 t1
   | `Predicate (sa, la), `Predicate (sb, lb) ->
       if sa <> sb then None
       else if List.length la <> List.length lb then None
       else List.fold_left2 (fun opt_s ta tb -> Option.bind opt_s (f ta tb)) (Some []) la lb
-  | (`TableVar _ | `EmptyTable | `Table _), `Predicate _
-  | `Predicate _, (`TableVar _ | `EmptyTable | `Table _) ->
+  | (`ListVar _ | `EmptyList | `List _), `Predicate _
+  | `Predicate _, (`ListVar _ | `EmptyList | `List _) ->
       None
 
 (* ************************************
@@ -268,9 +268,9 @@ let rec unify : term -> term -> substitution option =
 
 let rec variables_in_term = function
   | `GeneralVar id -> [ (`GeneralVar id : var) ]
-  | `TableVar id -> [ `TableVar id ]
-  | `EmptyTable -> []
-  | `Table (h, t) -> variables_in_term h @ variables_in_term (t :> term)
+  | `ListVar id -> [ `ListVar id ]
+  | `EmptyList -> []
+  | `List (h, t) -> variables_in_term h @ variables_in_term (t :> term)
   | `Predicate (_, l) -> l |> List.map variables_in_term |> List.concat
 
 let variables_in_clause (Clause (t, l)) = List.concat_map variables_in_term (t :: l)
@@ -279,7 +279,7 @@ let variables_in_request r = List.concat_map variables_in_term r
 
 let replace_tvars_in_term tvars =
   map_vars
-    (fun (`GeneralVar id) -> if List.mem (`TableVar id) tvars then `TableVar id else `GeneralVar id)
+    (fun (`GeneralVar id) -> if List.mem (`ListVar id) tvars then `ListVar id else `GeneralVar id)
     (fun x -> x)
 
 let type_inference_clause (Clause (t, l) as c) =
@@ -300,7 +300,7 @@ let rename n (Clause (t, l)) =
   let f =
     map_vars
       (fun (`GeneralVar (Id (s, _))) -> `GeneralVar (Id (s, n)))
-      (fun (`TableVar (Id (s, _))) -> `TableVar (Id (s, n)))
+      (fun (`ListVar (Id (s, _))) -> `ListVar (Id (s, n)))
   in
   Clause (f t, List.map f l)
 
